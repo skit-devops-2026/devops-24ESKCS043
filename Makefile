@@ -11,9 +11,10 @@ build:
 	test -f index.html
 	test -f css/style.css
 	test -f js/script.js
+	@if command -v npm >/dev/null 2>&1; then npm run build; fi
 
 run:
-	@echo "Open index.html in a web browser"
+	@if command -v npm >/dev/null 2>&1; then npm run dev; else echo "Open index.html in a web browser"; fi
 
 docker-build:
 	@echo "Docker build not configured yet"

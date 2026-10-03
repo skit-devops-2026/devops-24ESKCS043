@@ -1,0 +1,37 @@
+{
+  "name": "warranty-vault",
+  "version": "1.0.0",
+  "description": "Warranty Vault is a web-based warranty management  application designed to help users keep track of  their products, warranty information, service  history, documents, and warranty expiry dates.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "python3 -m unittest discover -s tests -p \"test_*.py\" -v"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/skit-devops-2026/devops-24ESKCS043.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/skit-devops-2026/devops-24ESKCS043/issues"
+  },
+  "homepage": "https://github.com/skit-devops-2026/devops-24ESKCS043#readme",
+  "dependencies": {
+    "lucide-react": "^1.51.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.1.1",
+    "vite": "^8.3.2"
+  }
+}

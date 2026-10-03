@@ -3,146 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Account Settings - WarrantyVault</title>
+  <title>Settings - WarrantyVault</title>
   <link rel="stylesheet" href="../css/style.css">
+  <script>
+    window.location.replace("../index.html#/settings");
+  </script>
 </head>
 <body>
-
-  <div class="app-container">
-    
-    <aside class="sidebar">
-      <div class="sidebar-header">
-        <a href="../index.html" style="color: white; display: flex; align-items: center; gap: 0.4rem;">
-          🛡️ WarrantyVault
-        </a>
-        <span class="badge-tag">User</span>
-      </div>
-
-      <nav class="sidebar-menu">
-        <a href="dashboard.html"><i>📊</i> Dashboard</a>
-        <a href="products.html"><i>📦</i> My Products</a>
-        <a href="documents.html"><i>📑</i> Documents</a>
-        <a href="expiring.html"><i>⚠️</i> Expiring Soon</a>
-        <a href="service-history.html"><i>🛠️</i> Service History</a>
-        <a href="analytics.html"><i>📈</i> Analytics</a>
-        <a href="settings.html" class="active"><i>⚙️</i> Settings</a>
-      </nav>
-
-      <div style="padding: 1rem; border-top: 1px solid rgba(255,255,255,0.08); font-size: 0.8rem;">
-        <a href="../admin/dashboard.html" style="color: #94a3b8; display: flex; align-items: center; gap: 0.5rem;">
-          <i>🔒</i> Switch to Admin Mode
-        </a>
-      </div>
-    </aside>
-
-    <div class="main-wrapper">
-      
-      <header class="top-navbar">
-        <div style="display: flex; align-items: center; gap: 1rem;">
-          <button class="toggle-sidebar-btn" aria-label="Toggle Sidebar">☰</button>
-        </div>
-
-        <div class="user-profile-menu">
-          <div class="user-avatar">JD</div>
-          <div class="user-info">
-            <span class="user-name">John Doe</span>
-            <span class="user-role">User</span>
-          </div>
-          <a href="../login.html" class="btn btn-secondary btn-sm" style="margin-left: 0.5rem;">Logout</a>
-        </div>
-      </header>
-
-      <main class="content-body">
-        
-        <div class="page-header">
-          <div>
-            <h1>Account Settings</h1>
-            <p>Manage profile preferences, password, and warranty reminder options.</p>
-          </div>
-          <a href="../login.html" class="btn btn-outline-danger">🚪 Logout Account</a>
-        </div>
-
-        <div class="card" style="max-width: 800px;">
-          <div class="card-body">
-            
-            <form id="settingsForm">
-              
-              <!-- Profile Information -->
-              <h3 style="font-size: 1.1rem; color: var(--primary); margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.4rem;">
-                1. Profile Information
-              </h3>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="profileName">Full Name</label>
-                  <input type="text" id="profileName" class="form-control" value="John Doe" required>
-                </div>
-
-                <div class="form-group">
-                  <label for="profileEmail">Email Address</label>
-                  <input type="email" id="profileEmail" class="form-control" value="john@example.com" required>
-                </div>
-              </div>
-
-              <!-- Change Password -->
-              <h3 style="font-size: 1.1rem; color: var(--primary); margin-top: 1.5rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.4rem;">
-                2. Change Password
-              </h3>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="currentPass">Current Password</label>
-                  <input type="password" id="currentPass" class="form-control" placeholder="••••••••">
-                </div>
-
-                <div class="form-group">
-                  <label for="newPass">New Password</label>
-                  <input type="password" id="newPass" class="form-control" placeholder="••••••••">
-                </div>
-              </div>
-
-              <!-- Notification & Reminder Preferences -->
-              <h3 style="font-size: 1.1rem; color: var(--primary); margin-top: 1.5rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.4rem;">
-                3. Expiry Reminder Settings
-              </h3>
-
-              <div class="form-group">
-                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                  <input type="checkbox" checked> Send Email notifications before warranty expiry
-                </label>
-              </div>
-
-              <div class="form-group">
-                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                  <input type="checkbox"> Send SMS alerts for critical 7-day expiries
-                </label>
-              </div>
-
-              <div class="form-group" style="max-width: 350px;">
-                <label for="reminderWindow">Default Expiry Reminder Notice</label>
-                <select id="reminderWindow" class="form-select">
-                  <option value="7">7 Days Before Expiry</option>
-                  <option value="14" selected>14 Days Before Expiry</option>
-                  <option value="30">30 Days Before Expiry</option>
-                  <option value="60">60 Days Before Expiry</option>
-                </select>
-              </div>
-
-              <div style="margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 1.25rem; display: flex; gap: 1rem;">
-                <button type="submit" class="btn btn-primary">💾 Save Settings</button>
-                <button type="reset" class="btn btn-secondary">Reset Changes</button>
-              </div>
-
-            </form>
-
-          </div>
-        </div>
-
-      </main>
-    </div>
-
+  <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 5rem 1.5rem;">
+    <h2 style="color: #4f46e5; margin-bottom: 0.5rem;">Redirecting to WarrantyVault Settings...</h2>
+    <p style="color: #64748b;">
+      <a href="../index.html#/settings" style="color: #4f46e5; text-decoration: underline;">Click here if you are not automatically redirected.</a>
+    </p>
   </div>
-
-  <script src="../js/script.js"></script>
 </body>
 </html>

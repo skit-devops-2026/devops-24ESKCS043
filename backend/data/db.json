@@ -1,0 +1,234 @@
+{
+  "products": [
+    {
+      "id": "prod-1",
+      "name": "iPhone 15 Pro",
+      "brand": "Apple Inc.",
+      "model": "A2848 (256GB Natural Titanium)",
+      "category": "Phones",
+      "purchaseDate": "2024-10-15",
+      "warrantyMonths": 24,
+      "expiryDate": "2026-10-15",
+      "price": 1199,
+      "currency": "USD",
+      "retailer": "Apple Store Fifth Ave",
+      "serialNumber": "DX9K2014M98X",
+      "invoiceNumber": "INV-APL-88291",
+      "notes": "Includes AppleCare+ with accidental damage protection.",
+      "status": "active",
+      "userId": "usr-1",
+      "createdAt": "2024-10-15T10:00:00.000Z",
+      "updatedAt": "2024-10-15T10:00:00.000Z"
+    },
+    {
+      "id": "prod-2",
+      "name": "Dell XPS 15 Laptop",
+      "brand": "Dell Technologies",
+      "model": "XPS 9530 (i9-13900H / 32GB RAM / 1TB SSD)",
+      "category": "Laptops",
+      "purchaseDate": "2025-08-20",
+      "warrantyMonths": 14,
+      "expiryDate": "2026-10-20",
+      "price": 2199,
+      "currency": "USD",
+      "retailer": "Amazon Retail",
+      "serialNumber": "DLX-8849-K89",
+      "invoiceNumber": "AMZ-99120-XPS",
+      "notes": "Dell Premium Support Plus on-site service included.",
+      "status": "expiring",
+      "userId": "usr-1",
+      "createdAt": "2025-08-20T10:00:00.000Z",
+      "updatedAt": "2025-08-20T10:00:00.000Z"
+    },
+    {
+      "id": "prod-3",
+      "name": "Samsung Smart Refrigerator",
+      "brand": "Samsung Electronics",
+      "model": "RF28R7351SR (580L French Door)",
+      "category": "Appliances",
+      "purchaseDate": "2023-01-10",
+      "warrantyMonths": 36,
+      "expiryDate": "2026-01-10",
+      "price": 1850,
+      "currency": "USD",
+      "retailer": "Best Buy Electronics",
+      "serialNumber": "SAM-RF-441098",
+      "invoiceNumber": "BB-7721-SAM",
+      "notes": "10-Year Digital Inverter compressor warranty still active.",
+      "status": "expired",
+      "userId": "usr-1",
+      "createdAt": "2023-01-10T10:00:00.000Z",
+      "updatedAt": "2023-01-10T10:00:00.000Z"
+    },
+    {
+      "id": "prod-musjax4y3rkp7g",
+      "name": "Test Widget",
+      "brand": "ACME",
+      "model": "",
+      "category": "Gadgets",
+      "purchaseDate": "2025-01-01",
+      "warrantyMonths": 12,
+      "expiryDate": "2026-01-01",
+      "price": 0,
+      "currency": "USD",
+      "retailer": "",
+      "serialNumber": "",
+      "invoiceNumber": "",
+      "notes": "",
+      "status": "expired",
+      "userId": "usr-1",
+      "createdAt": "2026-10-03T15:15:55.330Z",
+      "updatedAt": "2026-10-03T15:15:55.330Z"
+    }
+  ],
+  "categories": [
+    {
+      "id": "cat-1",
+      "name": "Phones",
+      "icon": "Smartphone",
+      "defaultWarrantyMonths": 24,
+      "description": "Smartphones, mobile devices & cases"
+    },
+    {
+      "id": "cat-2",
+      "name": "Laptops",
+      "icon": "Laptop",
+      "defaultWarrantyMonths": 12,
+      "description": "MacBooks, Windows PCs & workstations"
+    },
+    {
+      "id": "cat-3",
+      "name": "Appliances",
+      "icon": "Refrigerator",
+      "defaultWarrantyMonths": 36,
+      "description": "Refrigerators, vacuums & kitchen equipment"
+    },
+    {
+      "id": "cat-4",
+      "name": "Electronics",
+      "icon": "Tv",
+      "defaultWarrantyMonths": 24,
+      "description": "Smart TVs, audio systems, cameras"
+    },
+    {
+      "id": "cat-5",
+      "name": "Furniture",
+      "icon": "Armchair",
+      "defaultWarrantyMonths": 60,
+      "description": "Ergonomic chairs, desks & home furnishings"
+    },
+    {
+      "id": "cat-6",
+      "name": "Gadgets",
+      "icon": "Watch",
+      "defaultWarrantyMonths": 12,
+      "description": "Smartwatches, fitness bands & accessories"
+    },
+    {
+      "id": "cat-7",
+      "name": "Automobiles",
+      "icon": "Car",
+      "defaultWarrantyMonths": 48,
+      "description": "Cars, bikes & automotive accessories"
+    }
+  ],
+  "users": [
+    {
+      "id": "usr-1",
+      "name": "John Doe",
+      "email": "john@warrantyvault.io",
+      "passwordHash": "hashed_password_placeholder",
+      "role": "User",
+      "plan": "Premium Plan",
+      "status": "Active",
+      "joinedDate": "2024-01-15T00:00:00.000Z"
+    },
+    {
+      "id": "usr-5",
+      "name": "System Administrator",
+      "email": "admin@warrantyvault.io",
+      "passwordHash": "hashed_admin_placeholder",
+      "role": "Admin",
+      "plan": "Enterprise SuperAdmin",
+      "status": "Active",
+      "joinedDate": "2023-11-01T00:00:00.000Z"
+    }
+  ],
+  "serviceRecords": [
+    {
+      "id": "srv-1",
+      "productId": "prod-1",
+      "productName": "iPhone 15 Pro",
+      "date": "2025-06-12",
+      "center": "Apple Genius Bar NYC",
+      "issue": "Screen oleophobic coating inspection",
+      "cost": 0,
+      "status": "Completed",
+      "notes": "Checked under warranty at no cost.",
+      "createdAt": "2025-06-12T10:00:00.000Z"
+    },
+    {
+      "id": "srv-2",
+      "productId": "prod-2",
+      "productName": "Dell XPS 15 Laptop",
+      "date": "2026-02-14",
+      "center": "Dell Authorized Hub",
+      "issue": "Thermal fan cleaning & BIOS update",
+      "cost": 0,
+      "status": "Completed",
+      "notes": "Covered under Dell Premium Support.",
+      "createdAt": "2026-02-14T10:00:00.000Z"
+    },
+    {
+      "id": "srv-musjax54u39pv4",
+      "productId": "prod-1",
+      "productName": "iPhone 15 Pro",
+      "date": "2026-10-03",
+      "center": "Test Center",
+      "issue": "Smoke test issue",
+      "cost": 0,
+      "status": "Pending",
+      "notes": "",
+      "createdAt": "2026-10-03T15:15:55.336Z"
+    }
+  ],
+  "documents": [
+    {
+      "id": "doc-1",
+      "productId": "prod-1",
+      "productName": "iPhone 15 Pro",
+      "name": "iPhone_15_Pro_Apple_Receipt.pdf",
+      "type": "Receipt",
+      "size": "1.2 MB",
+      "uploadDate": "2024-10-15"
+    },
+    {
+      "id": "doc-2",
+      "productId": "prod-1",
+      "productName": "iPhone 15 Pro",
+      "name": "AppleCare_Plus_Certificate.pdf",
+      "type": "Warranty Card",
+      "size": "850 KB",
+      "uploadDate": "2024-10-15"
+    },
+    {
+      "id": "doc-3",
+      "productId": "prod-2",
+      "productName": "Dell XPS 15 Laptop",
+      "name": "Dell_XPS_Tax_Invoice.pdf",
+      "type": "Invoice",
+      "size": "2.4 MB",
+      "uploadDate": "2025-08-20"
+    },
+    {
+      "id": "doc-musjax55w0piky",
+      "productId": "prod-1",
+      "productName": "iPhone 15 Pro",
+      "name": "test.pdf",
+      "type": "Receipt",
+      "size": "Unknown",
+      "uploadDate": "2026-10-03",
+      "url": null
+    }
+  ]
+}

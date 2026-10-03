@@ -1,0 +1,76 @@
+0 verbose cli /usr/local/bin/node /usr/local/bin/npm
+1 info using npm@11.6.2
+2 info using node@v24.13.0
+3 silly config load:file:/usr/local/lib/node_modules/npm/npmrc
+4 silly config load:file:/Users/ananyadubey/Warranty-Vault/.npmrc
+5 silly config load:file:/Users/ananyadubey/.npmrc
+6 silly config load:file:/usr/local/etc/npmrc
+7 verbose title npm install react react-dom lucide-react
+8 verbose argv "install" "react" "react-dom" "lucide-react" "--cache" "./.npm-cache"
+9 verbose logfile logs-max:10 dir:/Users/ananyadubey/Warranty-Vault/.npm-cache/_logs/2026-10-03T14_45_16_861Z-
+10 verbose logfile /Users/ananyadubey/Warranty-Vault/.npm-cache/_logs/2026-10-03T14_45_16_861Z-debug-0.log
+11 silly logfile done cleaning log files
+12 silly packumentCache heap:2348810240 maxSize:587202560 maxEntrySize:293601280
+13 silly idealTree buildDeps
+14 silly fetch manifest react@*
+15 silly packumentCache full:https://registry.npmjs.org/react cache-miss
+16 http fetch GET 200 https://registry.npmjs.org/npm 158ms
+17 http fetch GET 200 https://registry.npmjs.org/react 199ms (cache miss)
+18 silly packumentCache full:https://registry.npmjs.org/react set size:undefined disposed:false
+19 silly fetch manifest react-dom@*
+20 silly packumentCache full:https://registry.npmjs.org/react-dom cache-miss
+21 http fetch GET 200 https://registry.npmjs.org/react-dom 236ms (cache miss)
+22 silly packumentCache full:https://registry.npmjs.org/react-dom set size:undefined disposed:false
+23 silly fetch manifest lucide-react@*
+24 silly packumentCache full:https://registry.npmjs.org/lucide-react cache-miss
+25 http fetch GET 200 https://registry.npmjs.org/lucide-react 69ms (cache miss)
+26 silly packumentCache full:https://registry.npmjs.org/lucide-react set size:undefined disposed:false
+27 silly fetch manifest @types/react@*
+28 silly packumentCache full:https://registry.npmjs.org/@types%2freact cache-miss
+29 http fetch GET 200 https://registry.npmjs.org/@types%2freact 112ms (cache miss)
+30 silly packumentCache full:https://registry.npmjs.org/@types%2freact set size:undefined disposed:false
+31 silly placeDep ROOT lucide-react@1.51.0 OK for: warranty-vault@1.0.0 want: *
+32 silly placeDep ROOT react@19.3.0 OK for: lucide-react@1.51.0 want: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
+33 silly placeDep ROOT react@19.3.0 REPLACE for: warranty-vault@1.0.0 want: *
+34 silly placeDep ROOT react-dom@19.3.0 OK for: warranty-vault@1.0.0 want: *
+35 silly fetch manifest scheduler@^0.28.0
+36 silly packumentCache full:https://registry.npmjs.org/scheduler cache-miss
+37 http fetch GET 200 https://registry.npmjs.org/scheduler 175ms (cache miss)
+38 silly packumentCache full:https://registry.npmjs.org/scheduler set size:undefined disposed:false
+39 silly placeDep ROOT scheduler@0.28.0 OK for: react-dom@19.3.0 want: ^0.28.0
+40 silly reify moves {}
+41 silly audit bulk request {
+41 silly audit   'lucide-react': [ '1.51.0' ],
+41 silly audit   react: [ '19.3.0' ],
+41 silly audit   'react-dom': [ '19.3.0' ],
+41 silly audit   scheduler: [ '0.28.0' ]
+41 silly audit }
+42 http cache scheduler@https://registry.npmjs.org/scheduler/-/scheduler-0.28.0.tgz 0ms (cache hit)
+43 http cache react@https://registry.npmjs.org/react/-/react-19.3.0.tgz 0ms (cache hit)
+44 http cache lucide-react@https://registry.npmjs.org/lucide-react/-/lucide-react-1.51.0.tgz 0ms (cache hit)
+45 http cache react-dom@https://registry.npmjs.org/react-dom/-/react-dom-19.3.0.tgz 0ms (cache hit)
+46 silly tarball no local data for scheduler@https://registry.npmjs.org/scheduler/-/scheduler-0.28.0.tgz. Extracting by manifest.
+47 silly tarball no local data for react@https://registry.npmjs.org/react/-/react-19.3.0.tgz. Extracting by manifest.
+48 silly tarball no local data for lucide-react@https://registry.npmjs.org/lucide-react/-/lucide-react-1.51.0.tgz. Extracting by manifest.
+49 silly tarball no local data for react-dom@https://registry.npmjs.org/react-dom/-/react-dom-19.3.0.tgz. Extracting by manifest.
+50 http fetch GET 200 https://registry.npmjs.org/scheduler/-/scheduler-0.28.0.tgz 37ms (cache miss)
+51 http fetch GET 200 https://registry.npmjs.org/react/-/react-19.3.0.tgz 107ms (cache miss)
+52 http fetch POST 200 https://registry.npmjs.org/-/npm/v1/security/advisories/bulk 300ms
+53 silly audit report {}
+54 http fetch GET 200 https://registry.npmjs.org/react-dom/-/react-dom-19.3.0.tgz 311ms (cache miss)
+55 http fetch GET 200 https://registry.npmjs.org/lucide-react/-/lucide-react-1.51.0.tgz 865ms (cache miss)
+56 silly ADD node_modules/scheduler
+57 silly ADD node_modules/react-dom
+58 silly ADD node_modules/react
+59 silly ADD node_modules/lucide-react
+60 verbose cwd /Users/ananyadubey/Warranty-Vault
+61 verbose os Darwin 22.1.0
+62 verbose node v24.13.0
+63 verbose npm  v11.6.2
+64 notice
+64 notice New [33mminor[39m version of npm available! [33m11.6.2[39m -> [34m11.21.0[39m
+64 notice Changelog: [34mhttps://github.com/npm/cli/releases/tag/v11.21.0[39m
+64 notice To update run: [4mnpm install -g npm@11.21.0[24m
+64 notice  { force: true, Symbol(proc-log.meta): true }
+65 verbose exit 0
+66 info ok

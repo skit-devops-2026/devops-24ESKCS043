@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: warranty-vault
+  labels:
+    app: warranty-vault
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: warranty-vault
+  template:
+    metadata:
+      labels:
+        app: warranty-vault
+    spec:
+      containers:
+        - name: warranty-vault
+          image: warranty-vault:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80

@@ -133,3 +133,15 @@ Ananya Dubey
 ## Project Status
 
 Developed as part of DevOps Practices and Principles coursework.
+
+## Docker Image
+
+Docker Hub Repository: https://hub.docker.com/r/ananya5105/warranty-vault
+
+Image: ananya5105/warranty-vault:latest
+
+Pull command: docker pull ananya5105/warranty-vault:latest
+
+## Live Deployment
+
+Live Application URL: https://devops-24eskcs043-production.up.railway.app

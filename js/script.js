@@ -178,33 +178,68 @@ function initFormDemoHandlers() {
   // Login Form Demo
   const loginForm = document.getElementById('loginForm');
   if (loginForm) {
-    loginForm.addEventListener('submit', (e) => {
+    loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      showToast('Login successful! Redirecting to Dashboard...', 'success');
-      setTimeout(() => {
-        window.location.href = 'user/dashboard.html';
-      }, 1000);
+      const formData = new FormData(loginForm);
+      const payload = {};
+      formData.forEach((value, key) => { payload[key] = value; });
+      try {
+        const response = await fetch('http://localhost:5000/api/users/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (response.ok) {
+          localStorage.setItem('token', data.token);
+          showToast('Login successful! Redirecting to Dashboard...', 'success');
+          setTimeout(() => { window.location.href = 'user/dashboard.html'; }, 1000);
+        } else {
+          showToast(data.message || 'Login failed', 'error');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Network error during login', 'error');
+      }
     });
   }
 
   // Register Form Demo
   const registerForm = document.getElementById('registerForm');
   if (registerForm) {
-    registerForm.addEventListener('submit', (e) => {
+    registerForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const password = document.getElementById('password')?.value;
       const confirmPassword = document.getElementById('confirmPassword')?.value;
+      const username = document.getElementById('username')?.value;
+      const email = document.getElementById('email')?.value;
 
       if (password && confirmPassword && password !== confirmPassword) {
         showToast('Passwords do not match!', 'error');
         return;
       }
 
-      showToast('Account created successfully! Redirecting to Login...', 'success');
-      setTimeout(() => {
-        window.location.href = 'login.html';
-      }, 1200);
+      const payload = { username, password, email };
+      try {
+        const response = await fetch('http://localhost:5000/api/users/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (response.ok) {
+          localStorage.setItem('token', data.data.token);
+          showToast('Account created successfully! Redirecting to Dashboard...', 'success');
+          setTimeout(() => { window.location.href = 'user/dashboard.html'; }, 1200);
+        } else {
+          showToast(data.error || 'Registration failed', 'error');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Network error during registration', 'error');
+      }
     });
+  }
   }
 
   // Add Product Form Demo

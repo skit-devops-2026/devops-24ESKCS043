@@ -1,17 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
-  INITIAL_PRODUCTS,
   INITIAL_CATEGORIES,
-  INITIAL_USERS,
-  INITIAL_SERVICE_RECORDS,
-  INITIAL_DOCUMENTS,
   INITIAL_SETTINGS,
 } from '../data/initialData';
 
 const VaultContext = createContext();
 
 export function VaultProvider({ children }) {
-  // --- LocalStorage persistence helper ---
+  // --- LocalStorage helpers (per-user scoped keys) ---
   const loadLocal = (key, fallback) => {
     try {
       const saved = localStorage.getItem(key);
@@ -21,22 +17,18 @@ export function VaultProvider({ children }) {
     }
   };
 
-  const [products, setProducts] = useState(() => loadLocal('wv_products', INITIAL_PRODUCTS));
-  const [categories, setCategories] = useState(() => loadLocal('wv_categories', INITIAL_CATEGORIES));
-  const [serviceRecords, setServiceRecords] = useState(() => loadLocal('wv_service', INITIAL_SERVICE_RECORDS));
-  const [documents, setDocuments] = useState(() => loadLocal('wv_documents', INITIAL_DOCUMENTS));
-  const [users, setUsers] = useState(() => loadLocal('wv_users', INITIAL_USERS));
-  const [settings, setSettings] = useState(() => loadLocal('wv_settings', INITIAL_SETTINGS));
+  // Load stored session user first so we can build user-scoped keys
+  const storedUser = loadLocal('wv_current_user', null);
+  const uid = storedUser?.id || 'guest';
 
-  const [currentUser, setCurrentUser] = useState(() => {
-    return loadLocal('wv_current_user', {
-      id: 'usr-1',
-      name: 'John Doe',
-      email: 'john@warrantyvault.io',
-      role: 'User',
-      plan: 'Premium Account',
-    });
-  });
+  // All per-user data is stored under keys scoped by userId
+  const [products, setProducts] = useState(() => loadLocal(`wv_products_${uid}`, []));
+  const [categories, setCategories] = useState(() => loadLocal('wv_categories', INITIAL_CATEGORIES));
+  const [serviceRecords, setServiceRecords] = useState(() => loadLocal(`wv_service_${uid}`, []));
+  const [documents, setDocuments] = useState(() => loadLocal(`wv_documents_${uid}`, []));
+  const [settings, setSettings] = useState(() => loadLocal(`wv_settings_${uid}`, null));
+
+  const [currentUser, setCurrentUser] = useState(storedUser);
 
   // Routing state
   const parseHash = () => {
@@ -46,41 +38,48 @@ export function VaultProvider({ children }) {
   };
 
   const [currentView, setCurrentView] = useState(parseHash());
-  const [selectedProductId, setSelectedProductId] = useState('prod-1');
+  const [selectedProductId, setSelectedProductId] = useState(null);
   const [editingProductId, setEditingProductId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [previewDoc, setPreviewDoc] = useState(null);
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('wv_theme') || (settings.darkMode ? 'dark' : 'light');
-  });
+  const [theme, setTheme] = useState(() => localStorage.getItem('wv_theme') || 'light');
 
   // Toast alert system
   const [toasts, setToasts] = useState([]);
 
-  // Sync state to localStorage
+  // Derive effective settings — merge defaults with stored overrides
+  const effectiveSettings = {
+    ...INITIAL_SETTINGS,
+    fullName: currentUser?.name || '',
+    email: currentUser?.email || '',
+    phone: '',
+    ...(settings || {}),
+  };
+
+  // Sync per-user data to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('wv_products', JSON.stringify(products));
-  }, [products]);
+    if (!currentUser) return;
+    localStorage.setItem(`wv_products_${currentUser.id}`, JSON.stringify(products));
+  }, [products, currentUser]);
 
   useEffect(() => {
     localStorage.setItem('wv_categories', JSON.stringify(categories));
   }, [categories]);
 
   useEffect(() => {
-    localStorage.setItem('wv_service', JSON.stringify(serviceRecords));
-  }, [serviceRecords]);
+    if (!currentUser) return;
+    localStorage.setItem(`wv_service_${currentUser.id}`, JSON.stringify(serviceRecords));
+  }, [serviceRecords, currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('wv_documents', JSON.stringify(documents));
-  }, [documents]);
+    if (!currentUser) return;
+    localStorage.setItem(`wv_documents_${currentUser.id}`, JSON.stringify(documents));
+  }, [documents, currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('wv_users', JSON.stringify(users));
-  }, [users]);
-
-  useEffect(() => {
-    localStorage.setItem('wv_settings', JSON.stringify(settings));
-  }, [settings]);
+    if (!currentUser) return;
+    localStorage.setItem(`wv_settings_${currentUser.id}`, JSON.stringify(settings));
+  }, [settings, currentUser]);
 
   useEffect(() => {
     localStorage.setItem('wv_current_user', JSON.stringify(currentUser));
@@ -312,20 +311,25 @@ export function VaultProvider({ children }) {
     notify('Settings and preferences saved successfully!', 'success');
   };
 
-  const login = (email, role = 'User') => {
-    const foundUser = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
-    const userToSet = foundUser || {
-      id: `usr-${Date.now()}`,
-      name: role === 'Admin' ? 'System Administrator' : 'John Doe',
-      email: email || (role === 'Admin' ? 'admin@warrantyvault.io' : 'john@warrantyvault.io'),
-      role: role,
-      plan: role === 'Admin' ? 'Enterprise SuperAdmin' : 'Premium Account',
-    };
+  const login = (userData) => {
+    const id = userData.id;
 
-    setCurrentUser(userToSet);
-    notify(`Welcome back, ${userToSet.name}!`, 'success');
+    // Load this user's own persisted data from their scoped keys
+    const userProducts = loadLocal(`wv_products_${id}`, []);
+    const userService = loadLocal(`wv_service_${id}`, []);
+    const userDocs = loadLocal(`wv_documents_${id}`, []);
+    const userSettings = loadLocal(`wv_settings_${id}`, null);
 
-    if (role === 'Admin' || userToSet.role === 'Admin') {
+    setProducts(userProducts);
+    setServiceRecords(userService);
+    setDocuments(userDocs);
+    setSettings(userSettings); // null = will use effectiveSettings defaults
+
+    setCurrentUser(userData);
+    localStorage.setItem('wv_current_user', JSON.stringify(userData));
+    notify(`Welcome, ${userData.name || userData.username}!`, 'success');
+
+    if (userData.role === 'Admin' || userData.role === 'admin') {
       navigate('admin-dashboard');
     } else {
       navigate('dashboard');
@@ -333,8 +337,11 @@ export function VaultProvider({ children }) {
   };
 
   const logout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('wv_current_user');
+    localStorage.removeItem('token');
     notify('You have been logged out safely.', 'info');
-    navigate('landing');
+    navigate('login');
   };
 
   const switchRole = (newRole) => {
@@ -387,8 +394,7 @@ export function VaultProvider({ children }) {
         categories,
         serviceRecords,
         documents,
-        users,
-        settings,
+        settings: effectiveSettings,
         currentUser,
         currentView,
         selectedProductId,

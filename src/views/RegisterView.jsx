@@ -26,21 +26,52 @@ export default function RegisterView() {
 
   const strength = getPasswordStrength();
 
-  const handleSubmit = (e) => {
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (password !== confirmPassword) {
       notify('Passwords do not match. Please verify.', 'error');
       return;
     }
-
     if (password.length < 6) {
       notify('Password should be at least 6 characters long.', 'error');
       return;
     }
 
-    notify(`Account successfully created for ${fullName}!`, 'success');
-    login(email, 'User');
+    // Derive a username from the full name (lowercase, no spaces)
+    const username = fullName.trim().toLowerCase().replace(/\s+/g, '_') || email.split('@')[0];
+
+    setLoading(true);
+    try {
+      const res = await fetch('http://localhost:5000/api/users/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        notify(data.error || 'Registration failed. Try a different email/username.', 'error');
+        return;
+      }
+      // Store JWT
+      localStorage.setItem('token', data.data.token);
+      // Log in immediately after registration
+      login({
+        id: data.data.id,
+        username: data.data.username,
+        name: fullName || data.data.username,
+        email: email,
+        role: 'User',
+        plan: 'Premium Account',
+      });
+      notify(`Account successfully created for ${fullName}!`, 'success');
+    } catch (err) {
+      notify('Network error — make sure the backend server is running.', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

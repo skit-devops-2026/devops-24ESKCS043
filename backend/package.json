@@ -4,14 +4,29 @@
   "description": "Warranty Vault REST API — pure Node.js, zero framework dependencies",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev":   "node --watch server.js"
+    "start": "node backend/server.js",
+    "dev": "nodemon backend/server.js"
   },
-  "keywords": ["warranty", "vault", "nodejs", "rest-api"],
+  "keywords": [
+    "warranty",
+    "vault",
+    "nodejs",
+    "rest-api"
+  ],
   "author": "Ananya Dubey",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
   },
-  "dependencies": {}
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.0",
+    "mongoose": "^7.5.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
 }

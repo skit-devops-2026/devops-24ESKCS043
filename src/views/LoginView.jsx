@@ -5,20 +5,48 @@ import Modal from '../components/Modal';
 
 export default function LoginView() {
   const { login, navigate, notify } = useVault();
-  const [email, setEmail] = useState('john@warrantyvault.io');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
 
-  const handleSubmit = (e) => {
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email) {
-      notify('Please enter your email address.', 'error');
+    if (!email || !password) {
+      notify('Please enter your email and password.', 'error');
       return;
     }
-    const role = email.toLowerCase().includes('admin') ? 'Admin' : 'User';
-    login(email, role);
+    setLoading(true);
+    try {
+      const res = await fetch('http://localhost:5000/api/users/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        notify(data.error || 'Login failed. Check your credentials.', 'error');
+        return;
+      }
+      // Store JWT
+      localStorage.setItem('token', data.data.token);
+      // Pass real user info to context
+      login({
+        id: data.data.id,
+        username: data.data.username,
+        name: data.data.username,
+        email: email,
+        role: data.data.role === 'admin' ? 'Admin' : 'User',
+        plan: data.data.role === 'admin' ? 'Enterprise SuperAdmin' : 'Premium Account',
+      });
+    } catch (err) {
+      notify('Network error — make sure the backend server is running.', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDemoLogin = (role) => {

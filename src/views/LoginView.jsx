@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useVault } from '../context/VaultContext';
-import { Shield, Lock, Mail, ArrowRight, UserCheck, ShieldAlert, Sparkles } from 'lucide-react';
+import { Shield, Lock, Mail, ArrowRight } from 'lucide-react';
 import Modal from '../components/Modal';
 
 export default function LoginView() {
@@ -21,43 +21,11 @@ export default function LoginView() {
     }
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:5000/api/users/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        notify(data.error || 'Login failed. Check your credentials.', 'error');
-        return;
-      }
-      // Store JWT
-      localStorage.setItem('token', data.data.token);
-      // Pass real user info to context
-      login({
-        id: data.data.id,
-        username: data.data.username,
-        name: data.data.username,
-        email: email,
-        role: data.data.role === 'admin' ? 'Admin' : 'User',
-        plan: data.data.role === 'admin' ? 'Enterprise SuperAdmin' : 'Premium Account',
-      });
+      await login(email, password);
     } catch (err) {
-      notify('Network error — make sure the backend server is running.', 'error');
+      notify(err.message || 'Login failed. Check your credentials.', 'error');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleDemoLogin = (role) => {
-    if (role === 'Admin') {
-      setEmail('admin@warrantyvault.io');
-      setPassword('adminsecret');
-      login('admin@warrantyvault.io', 'Admin');
-    } else {
-      setEmail('john@warrantyvault.io');
-      setPassword('password123');
-      login('john@warrantyvault.io', 'User');
     }
   };
 
@@ -119,43 +87,6 @@ export default function LoginView() {
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', marginTop: '0.35rem' }}>
             Access your secure personal warranty vault
           </p>
-        </div>
-
-        {/* 1-Click Quick Demo Login Pill Bar */}
-        <div
-          style={{
-            background: 'var(--bg-canvas)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: 'var(--radius-md)',
-            padding: '0.85rem',
-            marginBottom: '1.5rem',
-            textAlign: 'center',
-          }}
-        >
-          <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>
-            <Sparkles size={14} />
-            <span>ONE-CLICK DEMO ACCESS</span>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-            <button
-              type="button"
-              onClick={() => handleDemoLogin('User')}
-              className="wv-btn wv-btn-secondary wv-btn-sm"
-              style={{ fontSize: '0.82rem' }}
-            >
-              <UserCheck size={14} />
-              <span>User Demo</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleDemoLogin('Admin')}
-              className="wv-btn wv-btn-secondary wv-btn-sm"
-              style={{ fontSize: '0.82rem' }}
-            >
-              <ShieldAlert size={14} />
-              <span>Admin Demo</span>
-            </button>
-          </div>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -224,9 +155,10 @@ export default function LoginView() {
           <button
             type="submit"
             className="wv-btn wv-btn-primary"
-            style={{ width: '100%', padding: '0.85rem', fontSize: '1rem' }}
+            disabled={loading}
+            style={{ width: '100%', padding: '0.85rem', fontSize: '1rem', opacity: loading ? 0.7 : 1 }}
           >
-            <span>Sign In to Vault</span>
+            <span>{loading ? 'Signing in…' : 'Sign In to Vault'}</span>
             <ArrowRight size={18} />
           </button>
         </form>

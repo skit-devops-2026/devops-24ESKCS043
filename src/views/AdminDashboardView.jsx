@@ -14,10 +14,12 @@ import {
 } from 'lucide-react';
 
 export default function AdminDashboardView() {
-  const { users, products, categories, navigate } = useVault();
+  const { users, products, categories, documents, navigate, formatMoney, formatTotal } = useVault();
+  const regularUsers = users.filter((u) => u.role !== 'Admin');
+  const recentUsers = [...regularUsers].sort((a, b) => (b.joinedDate || '').localeCompare(a.joinedDate || '')).slice(0, 5);
 
   const totalCatalogValue = products.reduce((acc, p) => acc + (parseFloat(p.price) || 0), 0);
-  const activeUsers = users.filter((u) => u.status === 'Active').length;
+  const activeUsers = regularUsers.filter((u) => u.status === 'Active').length;
 
   return (
     <div className="wv-content">
@@ -51,8 +53,8 @@ export default function AdminDashboardView() {
             <Users size={26} />
           </div>
           <div>
-            <div className="wv-stat-label">Total Users</div>
-            <div className="wv-stat-number">{users.length}</div>
+            <div className="wv-stat-label">Registered Users</div>
+            <div className="wv-stat-number">{regularUsers.length}</div>
           </div>
         </div>
 
@@ -72,7 +74,7 @@ export default function AdminDashboardView() {
           </div>
           <div>
             <div className="wv-stat-label">Total Catalog Value</div>
-            <div className="wv-stat-number">${totalCatalogValue.toLocaleString()}</div>
+            <div className="wv-stat-number">{formatTotal(products)}</div>
           </div>
         </div>
 
@@ -81,8 +83,8 @@ export default function AdminDashboardView() {
             <Activity size={26} />
           </div>
           <div>
-            <div className="wv-stat-label">System Health</div>
-            <div className="wv-stat-number" style={{ color: 'var(--accent-emerald)' }}>99.98%</div>
+            <div className="wv-stat-label">Active Users</div>
+            <div className="wv-stat-number" style={{ color: 'var(--accent-emerald)' }}>{activeUsers}</div>
           </div>
         </div>
       </div>
@@ -96,7 +98,7 @@ export default function AdminDashboardView() {
             <div className="wv-card-header">
               <h3 className="wv-card-title">
                 <Users size={20} color="var(--primary)" />
-                <span>Registered Platform Users ({users.length})</span>
+                <span>Newest Users ({regularUsers.length} total)</span>
               </h3>
               <button
                 onClick={() => navigate('admin-users')}
@@ -112,13 +114,16 @@ export default function AdminDashboardView() {
                   <tr>
                     <th>User</th>
                     <th>Role</th>
-                    <th>Plan</th>
+                    <th>Documents</th>
                     <th>Status</th>
                     <th>Products</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {users.slice(0, 4).map((u) => (
+                  {recentUsers.length === 0 && (
+                    <tr><td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>No users have registered yet.</td></tr>
+                  )}
+                  {recentUsers.map((u) => (
                     <tr key={u.id}>
                       <td>
                         <strong style={{ color: 'var(--text-primary)', display: 'block' }}>{u.name}</strong>
@@ -139,7 +144,7 @@ export default function AdminDashboardView() {
                         </span>
                       </td>
                       <td>
-                        <span style={{ fontSize: '0.85rem' }}>{u.plan}</span>
+                        <strong>{u.documentsCount || 0}</strong>
                       </td>
                       <td>
                         <span className={`wv-badge ${u.status === 'Active' ? 'wv-badge-active' : 'wv-badge-expired'}`}>
@@ -161,7 +166,7 @@ export default function AdminDashboardView() {
             <div className="wv-card-header">
               <h3 className="wv-card-title">
                 <Package size={20} color="var(--accent-cyan)" />
-                <span>Global Product Inventory Sample</span>
+                <span>Latest Products (All Users)</span>
               </h3>
               <button
                 onClick={() => navigate('admin-products')}
@@ -176,24 +181,28 @@ export default function AdminDashboardView() {
                 <thead>
                   <tr>
                     <th>Item</th>
+                    <th>Owner</th>
                     <th>Category</th>
-                    <th>Serial Number</th>
                     <th>Price</th>
                     <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {products.slice(0, 4).map((p) => (
+                  {products.length === 0 && (
+                    <tr><td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>No products have been added yet.</td></tr>
+                  )}
+                  {products.slice(0, 5).map((p) => (
                     <tr key={p.id}>
                       <td>
                         <strong style={{ color: 'var(--text-primary)' }}>{p.name}</strong>
                         <div style={{ fontSize: '0.76rem', color: 'var(--text-tertiary)' }}>{p.brand}</div>
                       </td>
-                      <td>{p.category}</td>
                       <td>
-                        <code style={{ fontSize: '0.82rem', color: 'var(--primary)' }}>{p.serialNumber}</code>
+                        <span style={{ fontSize: '0.85rem' }}>{p.ownerName}</span>
+                        <div style={{ fontSize: '0.74rem', color: 'var(--text-tertiary)' }}>{p.ownerEmail}</div>
                       </td>
-                      <td>${p.price}</td>
+                      <td>{p.category}</td>
+                      <td>{formatMoney(p.price, p.currency)}</td>
                       <td>
                         <span className={`wv-badge wv-badge-${p.status}`}>
                           {p.status}
@@ -226,12 +235,12 @@ export default function AdminDashboardView() {
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Automated Expiry Cron:</span>
-                  <strong style={{ color: 'var(--text-primary)' }}>Daily 00:00 UTC</strong>
+                  <span style={{ color: 'var(--text-secondary)' }}>Expiring Within 30 Days:</span>
+                  <strong style={{ color: 'var(--text-primary)' }}>{products.filter((p) => p.status === 'expiring').length} Products</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Encrypted Storage:</span>
-                  <strong style={{ color: 'var(--text-primary)' }}>AES-256 Enabled</strong>
+                  <span style={{ color: 'var(--text-secondary)' }}>Documents Stored:</span>
+                  <strong style={{ color: 'var(--text-primary)' }}>{documents.length} Files</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ color: 'var(--text-secondary)' }}>Active Category Schemas:</span>
@@ -267,14 +276,14 @@ export default function AdminDashboardView() {
                 className="wv-btn wv-btn-secondary wv-btn-sm"
                 style={{ justifyContent: 'flex-start' }}
               >
-                👥 Add / Edit User Roles
+                👥 Manage User Accounts
               </button>
               <button
                 onClick={() => navigate('admin-products')}
                 className="wv-btn wv-btn-secondary wv-btn-sm"
                 style={{ justifyContent: 'flex-start' }}
               >
-                📦 Verify Warranty Authenticity
+                📦 Browse All Products
               </button>
               <button
                 onClick={() => navigate('admin-reports')}
@@ -282,13 +291,6 @@ export default function AdminDashboardView() {
                 style={{ justifyContent: 'flex-start' }}
               >
                 📑 Export Audit Data (CSV/JSON)
-              </button>
-              <button
-                onClick={() => navigate('dashboard')}
-                className="wv-btn wv-btn-primary wv-btn-sm"
-                style={{ justifyContent: 'flex-start', marginTop: '0.5rem' }}
-              >
-                🛡️ Return to User Portal
               </button>
             </div>
           </div>

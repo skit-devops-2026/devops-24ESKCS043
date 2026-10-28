@@ -50,7 +50,39 @@ Warranty Vault is a web-based warranty management application that helps users m
 └── README.md
 ```
 
-## Run Locally
+
+## Run the Website Locally (without Docker)
+
+You need Node.js 18+ and the MongoDB connection string in `backend/.env`.
+
+```bash
+# 1. Backend API (http://localhost:5000)
+cd backend
+npm install
+npm start
+
+# 2. Frontend (http://localhost:5173) — in a second terminal, from the project root
+npm install
+npm run dev
+```
+
+### Admin login
+
+There is exactly **one** admin account. It is created automatically the first time the backend
+starts, from these values in `backend/.env`:
+
+```
+ADMIN_EMAIL=admin@warrantyvault.io
+ADMIN_PASSWORD=Admin@Vault2026
+```
+
+Change the password in `.env` **before** the first start (or log in and change it under Settings).
+Public sign-up always creates a normal user, and normal users have no way to reach admin pages.
+
+If the frontend should talk to an API on another address, set `VITE_API_URL`
+(e.g. `VITE_API_URL=https://my-api.example.com`) before `npm run dev` / `npm run build`.
+
+## Run Locally (Docker)
 
 Install Docker Desktop and start it first.
 

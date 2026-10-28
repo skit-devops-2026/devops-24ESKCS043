@@ -13,25 +13,30 @@ import {
 } from 'lucide-react';
 
 export default function AdminReportsView() {
-  const { products, users, serviceRecords, notify } = useVault();
+  const { products, users, serviceRecords, notify , formatMoney, formatTotal } = useVault();
 
   const [reportType, setReportType] = useState('full-catalog');
   const [dateRange, setDateRange] = useState('all-time');
 
   const totalValue = products.reduce((acc, p) => acc + (parseFloat(p.price) || 0), 0);
-  const totalServiceSpend = serviceRecords.reduce((acc, s) => acc + (parseFloat(s.cost) || 0), 0);
+  // service costs are in each owner's account currency
+  const userCurrency = Object.fromEntries(users.map((u) => [u.id, u.settings?.currency || 'USD']));
+  const serviceWithCurrency = serviceRecords.map((s) => ({ ...s, currency: userCurrency[s.userId] }));
 
   const handleExportCSV = () => {
     // Generate CSV content from products
-    const headers = ['ID', 'Name', 'Brand', 'Category', 'Purchase Date', 'Expiry Date', 'Price', 'Status', 'Serial Number'];
+    const headers = ['ID', 'Owner', 'Owner Email', 'Name', 'Brand', 'Category', 'Purchase Date', 'Expiry Date', 'Price', 'Currency', 'Status', 'Serial Number'];
     const rows = products.map((p) => [
       p.id,
+      `"${p.ownerName || ''}"`,
+      p.ownerEmail || '',
       `"${p.name}"`,
       `"${p.brand}"`,
       p.category,
       p.purchaseDate,
       p.expiryDate,
       p.price,
+      p.currency || '',
       p.status,
       p.serialNumber,
     ]);
@@ -191,7 +196,7 @@ export default function AdminReportsView() {
                 Cumulative Value
               </span>
               <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                ${totalValue.toLocaleString()}
+                {formatTotal(products)}
               </div>
             </div>
 
@@ -200,7 +205,7 @@ export default function AdminReportsView() {
                 Logged Service Bills
               </span>
               <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                ${totalServiceSpend.toLocaleString()}
+                {formatTotal(serviceWithCurrency, 'cost')}
               </div>
             </div>
 
@@ -209,7 +214,7 @@ export default function AdminReportsView() {
                 Account Base
               </span>
               <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                {users.length} Users
+                {users.filter((u) => u.role !== 'Admin').length} Users
               </div>
             </div>
           </div>
@@ -233,7 +238,7 @@ export default function AdminReportsView() {
                   <tr key={item.id}>
                     <td>
                       <strong style={{ color: 'var(--text-primary)' }}>{item.name}</strong>
-                      <div style={{ fontSize: '0.76rem', color: 'var(--text-tertiary)' }}>{item.brand}</div>
+                      <div style={{ fontSize: '0.76rem', color: 'var(--text-tertiary)' }}>{item.brand} • Owner: {item.ownerName}</div>
                     </td>
                     <td>{item.category}</td>
                     <td>
@@ -243,7 +248,7 @@ export default function AdminReportsView() {
                     <td>
                       <strong>{item.expiryDate}</strong>
                     </td>
-                    <td>${item.price}</td>
+                    <td>{formatMoney(item.price, item.currency)}</td>
                     <td>
                       <span className={`wv-badge wv-badge-${item.status}`}>
                         {item.status}

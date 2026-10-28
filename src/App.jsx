@@ -27,8 +27,16 @@ import AdminCategoriesView from './views/AdminCategoriesView';
 import AdminReportsView from './views/AdminReportsView';
 
 export default function App() {
-  const { currentView } = useVault();
+  const { currentView, currentUser, authReady } = useVault();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  if (!authReady) {
+    return (
+      <div className="wv-app" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+        Loading your vault…
+      </div>
+    );
+  }
 
   // If public standalone views
   if (currentView === 'landing') {
@@ -40,7 +48,8 @@ export default function App() {
     );
   }
 
-  if (currentView === 'login') {
+  // Not signed in: anything other than the public pages shows the login screen
+  if (currentView === 'login' || (!currentUser && currentView !== 'register')) {
     return (
       <div className="wv-app">
         <LoginView />

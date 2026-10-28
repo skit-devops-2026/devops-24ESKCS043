@@ -899,3 +899,4 @@ code, kbd, pre {
     width: 240px;
   }
 }
+@keyframes wv-spin { to { transform: rotate(360deg); } } .wv-spin { animation: wv-spin 1s linear infinite; }

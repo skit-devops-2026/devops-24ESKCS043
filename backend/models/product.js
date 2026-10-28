@@ -3,8 +3,9 @@ const mongoose = require('mongoose');
 
 const productSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
+  userId: { type: String, required: true, index: true },
   name: { type: String, required: true },
-  brand: { type: String, required: true },
+  brand: { type: String, default: '' },
   model: { type: String, default: '' },
   category: { type: String, required: true },
   purchaseDate: { type: String, required: true },
@@ -17,7 +18,6 @@ const productSchema = new mongoose.Schema({
   invoiceNumber: { type: String, default: '' },
   notes: { type: String, default: '' },
   status: { type: String, default: 'active' },
-  userId: { type: String, default: 'guest' },
   createdAt: { type: String },
   updatedAt: { type: String },
 });

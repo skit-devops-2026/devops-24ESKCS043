@@ -11,23 +11,20 @@ import {
 } from 'lucide-react';
 
 export default function AdminProductsView() {
-  const { products, categories, navigate, deleteProduct, notify } = useVault();
+  const { products, categories, navigate, deleteProduct, notify , formatMoney } = useVault();
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
 
   const filteredProducts = products.filter((p) => {
-    const matchesSearch =
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.brand.toLowerCase().includes(search.toLowerCase()) ||
-      p.serialNumber.toLowerCase().includes(search.toLowerCase());
+    const q = search.toLowerCase();
+    const matchesSearch = [p.name, p.brand, p.serialNumber, p.ownerName, p.ownerEmail]
+      .some((v) => (v || '').toLowerCase().includes(q));
 
     const matchesCat = !categoryFilter || p.category.toLowerCase() === categoryFilter.toLowerCase();
     return matchesSearch && matchesCat;
   });
 
-  const toggleVerify = (productName) => {
-    notify(`Manufacturer authenticity badge verified for "${productName}".`, 'success');
-  };
+
 
   return (
     <div className="wv-content">
@@ -60,7 +57,7 @@ export default function AdminProductsView() {
           <div style={{ position: 'relative', width: '280px' }}>
             <input
               type="text"
-              placeholder="Search serial, brand, item..."
+              placeholder="Search item, serial, owner..."
               className="wv-input"
               style={{ paddingLeft: '2.2rem', fontSize: '0.88rem' }}
               value={search}
@@ -104,7 +101,7 @@ export default function AdminProductsView() {
                 <th>Serial Number</th>
                 <th>Purchase Horizon</th>
                 <th>Coverage Expiry</th>
-                <th>Verification</th>
+                <th>Owner</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
@@ -120,7 +117,7 @@ export default function AdminProductsView() {
                   <tr key={item.id}>
                     <td>
                       <strong style={{ color: 'var(--text-primary)', display: 'block' }}>{item.name}</strong>
-                      <span style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)' }}>{item.brand} • ${item.price}</span>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)' }}>{item.brand} • {formatMoney(item.price, item.currency)}</span>
                     </td>
                     <td>
                       <span
@@ -145,14 +142,8 @@ export default function AdminProductsView() {
                       <span style={{ fontSize: '0.88rem', fontWeight: 600 }}>{item.expiryDate}</span>
                     </td>
                     <td>
-                      <button
-                        onClick={() => toggleVerify(item.name)}
-                        className="wv-btn wv-btn-secondary wv-btn-sm"
-                        style={{ fontSize: '0.78rem', color: 'var(--accent-emerald)' }}
-                      >
-                        <ShieldCheck size={14} />
-                        <span>Verified</span>
-                      </button>
+                      <span style={{ fontSize: '0.86rem', display: 'block' }}>{item.ownerName}</span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>{item.ownerEmail}</span>
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', gap: '0.35rem' }}>
@@ -164,7 +155,9 @@ export default function AdminProductsView() {
                           <Eye size={14} />
                         </button>
                         <button
-                          onClick={() => deleteProduct(item.id)}
+                          onClick={() => {
+                            if (window.confirm(`Delete "${item.name}" (owned by ${item.ownerName})?`)) deleteProduct(item.id);
+                          }}
                           className="wv-btn wv-btn-danger wv-btn-sm"
                           title="Purge item"
                         >

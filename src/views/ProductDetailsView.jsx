@@ -21,6 +21,8 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import Modal from '../components/Modal';
+import FileDropzone from '../components/FileDropzone';
+import { localToday } from '../api';
 
 export default function ProductDetailsView() {
   const {
@@ -29,13 +31,17 @@ export default function ProductDetailsView() {
     navigate,
     deleteProduct,
     addServiceRecord,
-    addDocument,
+    uploadDocument,
+    downloadDocument,
     setPreviewDoc,
     notify,
+    formatMoney,
+    currencySymbol,
+    isAdmin,
   } = useVault();
 
-  // Find selected product
-  const product = products.find((p) => p.id === selectedProductId) || products[0];
+  // Find selected product (no silent fallback to some other product)
+  const product = products.find((p) => p.id === selectedProductId);
 
   // Modals state
   const [showClaimModal, setShowClaimModal] = useState(false);
@@ -51,13 +57,16 @@ export default function ProductDetailsView() {
   // Form state for doc upload modal
   const [docName, setDocName] = useState('');
   const [docType, setDocType] = useState('Receipt');
+  const [docFile, setDocFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [serviceDate, setServiceDate] = useState(localToday());
 
   if (!product) {
     return (
       <div className="wv-content" style={{ textAlign: 'center', padding: '5rem 2rem' }}>
         <h2>Product not found</h2>
-        <button onClick={() => navigate('products')} className="wv-btn wv-btn-primary" style={{ marginTop: '1rem' }}>
-          Back to My Products
+        <button onClick={() => navigate(isAdmin ? 'admin-products' : 'products')} className="wv-btn wv-btn-primary" style={{ marginTop: '1rem' }}>
+          Back to Products
         </button>
       </div>
     );
@@ -71,47 +80,53 @@ export default function ProductDetailsView() {
   const isExpired = product.status === 'expired';
 
   // Handle service record submit
-  const handleServiceSubmit = (e) => {
+  const handleServiceSubmit = async (e) => {
     e.preventDefault();
     if (!serviceIssue.trim()) {
       notify('Please describe the service issue.', 'error');
       return;
     }
 
-    addServiceRecord({
+    if (serviceDate > localToday()) {
+      notify('Service date cannot be in the future.', 'error');
+      return;
+    }
+    const ok = await addServiceRecord({
       productId: product.id,
-      productName: product.name,
-      date: new Date().toISOString().split('T')[0],
+      date: serviceDate,
       center: serviceCenter || 'Brand Official Service Center',
       issue: serviceIssue,
       cost: parseFloat(serviceCost) || 0,
       status: serviceStatus,
     });
 
+    if (!ok) return;
     setShowServiceModal(false);
+    setServiceDate(localToday());
     setServiceCenter('');
     setServiceIssue('');
     setServiceCost('0');
   };
 
   // Handle doc upload submit
-  const handleDocSubmit = (e) => {
+  const handleDocSubmit = async (e) => {
     e.preventDefault();
-    if (!docName.trim()) {
-      notify('Please provide a document title.', 'error');
+    if (!docFile) {
+      notify('Please choose a file to upload.', 'error');
       return;
     }
+    const ext = docFile.name.includes('.') ? docFile.name.slice(docFile.name.lastIndexOf('.')) : '';
+    const title = docName.trim()
+      ? (docName.trim().toLowerCase().endsWith(ext.toLowerCase()) ? docName.trim() : `${docName.trim()}${ext}`)
+      : docFile.name;
 
-    addDocument({
-      productId: product.id,
-      productName: product.name,
-      name: docName.endsWith('.pdf') ? docName : `${docName}.pdf`,
-      type: docType,
-      size: '1.4 MB',
-    });
-
+    setUploading(true);
+    const saved = await uploadDocument({ productId: product.id, file: docFile, name: title, type: docType });
+    setUploading(false);
+    if (!saved) return;
     setShowDocUploadModal(false);
     setDocName('');
+    setDocFile(null);
   };
 
   const handleClaimSubmit = (e) => {
@@ -126,7 +141,7 @@ export default function ProductDetailsView() {
       <div className="wv-page-header">
         <div>
           <button
-            onClick={() => navigate('products')}
+            onClick={() => navigate(isAdmin ? 'admin-products' : 'products')}
             className="wv-btn wv-btn-secondary wv-btn-sm"
             style={{ marginBottom: '0.75rem' }}
           >
@@ -143,21 +158,27 @@ export default function ProductDetailsView() {
           </div>
           <p className="wv-page-subtitle">
             {product.brand} • Category: <strong>{product.category}</strong> • Serial: {product.serialNumber}
+            {isAdmin && product.ownerName && (
+              <> • Owner: <strong>{product.ownerName}</strong> ({product.ownerEmail})</>
+            )}
           </p>
         </div>
 
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {!isAdmin && (
+            <button
+              onClick={() => navigate('add-product', { editProductId: product.id })}
+              className="wv-btn wv-btn-secondary"
+            >
+              <Edit size={16} />
+              <span>Edit Item</span>
+            </button>
+          )}
           <button
-            onClick={() => navigate('add-product', { editProductId: product.id })}
-            className="wv-btn wv-btn-secondary"
-          >
-            <Edit size={16} />
-            <span>Edit Item</span>
-          </button>
-          <button
-            onClick={() => {
-              deleteProduct(product.id);
-              navigate('products');
+            onClick={async () => {
+              if (!window.confirm(`Delete "${product.name}" and all its documents and service records?`)) return;
+              await deleteProduct(product.id);
+              navigate(isAdmin ? 'admin-products' : 'products');
             }}
             className="wv-btn wv-btn-danger"
           >
@@ -227,7 +248,7 @@ export default function ProductDetailsView() {
                     Purchase Price
                   </span>
                   <strong style={{ fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-                    ${product.price} {product.currency || 'USD'}
+                    {formatMoney(product.price, product.currency)}
                   </strong>
                 </div>
 
@@ -274,13 +295,15 @@ export default function ProductDetailsView() {
                 <FileText size={20} color="var(--primary)" />
                 <span>Invoices & Proof of Purchase ({product.documents ? product.documents.length : 0})</span>
               </h3>
-              <button
-                onClick={() => setShowDocUploadModal(true)}
-                className="wv-btn wv-btn-secondary wv-btn-sm"
-              >
-                <Plus size={15} />
-                <span>Upload Document</span>
-              </button>
+              {!isAdmin && (
+                <button
+                  onClick={() => setShowDocUploadModal(true)}
+                  className="wv-btn wv-btn-secondary wv-btn-sm"
+                >
+                  <Plus size={15} />
+                  <span>Upload Document</span>
+                </button>
+              )}
             </div>
 
             <div className="wv-card-body">
@@ -288,13 +311,13 @@ export default function ProductDetailsView() {
                 <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-secondary)' }}>
                   <FileText size={36} color="var(--text-tertiary)" style={{ margin: '0 auto 0.5rem' }} />
                   <p style={{ fontSize: '0.92rem' }}>No receipts or warranty cards attached yet.</p>
-                  <button
+                  {!isAdmin && <button
                     onClick={() => setShowDocUploadModal(true)}
                     className="wv-btn wv-btn-secondary wv-btn-sm"
                     style={{ marginTop: '0.75rem' }}
                   >
                     Attach First Document
-                  </button>
+                  </button>}
                 </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
@@ -341,7 +364,7 @@ export default function ProductDetailsView() {
                             {doc.name}
                           </strong>
                           <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
-                            {doc.type} • {doc.size || '1.2 MB'}
+                            {doc.type} • {doc.size}
                           </span>
                         </div>
                       </div>
@@ -350,12 +373,12 @@ export default function ProductDetailsView() {
                         <button
                           onClick={() => setPreviewDoc({ ...doc, productName: product.name })}
                           className="wv-btn wv-btn-secondary wv-btn-sm"
-                          title="Preview document"
+                          title="View document"
                         >
                           <Eye size={14} />
                         </button>
                         <button
-                          onClick={() => notify(`Downloading "${doc.name}"...`, 'info')}
+                          onClick={() => downloadDocument(doc)}
                           className="wv-btn wv-btn-secondary wv-btn-sm"
                           title="Download document"
                         >
@@ -376,13 +399,15 @@ export default function ProductDetailsView() {
                 <Wrench size={20} color="var(--primary)" />
                 <span>Service & Maintenance Records ({product.serviceHistory ? product.serviceHistory.length : 0})</span>
               </h3>
-              <button
-                onClick={() => setShowServiceModal(true)}
-                className="wv-btn wv-btn-secondary wv-btn-sm"
-              >
-                <Plus size={15} />
-                <span>Log Service Record</span>
-              </button>
+              {!isAdmin && (
+                <button
+                  onClick={() => setShowServiceModal(true)}
+                  className="wv-btn wv-btn-secondary wv-btn-sm"
+                >
+                  <Plus size={15} />
+                  <span>Log Service Record</span>
+                </button>
+              )}
             </div>
 
             <div className="wv-card-body">
@@ -441,7 +466,7 @@ export default function ProductDetailsView() {
                           OUT-OF-POCKET
                         </span>
                         <strong style={{ fontSize: '1.05rem', color: 'var(--text-primary)' }}>
-                          {item.cost > 0 ? `$${item.cost}` : 'Free (Warranty)'}
+                          {item.cost > 0 ? formatMoney(item.cost, product.currency) : 'Free (Warranty)'}
                         </strong>
                       </div>
                     </div>
@@ -619,9 +644,21 @@ export default function ProductDetailsView() {
             />
           </div>
 
+          <div className="wv-form-group">
+            <label className="wv-form-label">Service Date</label>
+            <input
+              type="date"
+              required
+              className="wv-input"
+              max={localToday()}
+              value={serviceDate}
+              onChange={(e) => setServiceDate(e.target.value)}
+            />
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div className="wv-form-group">
-              <label className="wv-form-label">Out-of-Pocket Cost ($)</label>
+              <label className="wv-form-label">Out-of-Pocket Cost ({currencySymbol})</label>
               <input
                 type="number"
                 min="0"
@@ -667,13 +704,21 @@ export default function ProductDetailsView() {
         maxWidth="480px"
       >
         <form onSubmit={handleDocSubmit}>
+          <FileDropzone
+            file={docFile}
+            onChange={(f) => {
+              setDocFile(f);
+              if (f && !docName) setDocName(f.name.replace(/\.[^.]+$/, ''));
+            }}
+            onError={(m) => notify(m, 'error')}
+          />
+
           <div className="wv-form-group">
             <label className="wv-form-label">Document Title</label>
             <input
               type="text"
-              required
               className="wv-input"
-              placeholder="e.g. Official_Tax_Invoice_2025"
+              placeholder="Defaults to the file name"
               value={docName}
               onChange={(e) => setDocName(e.target.value)}
             />
@@ -693,26 +738,6 @@ export default function ProductDetailsView() {
             </select>
           </div>
 
-          <div
-            style={{
-              border: '2px dashed var(--border-subtle)',
-              borderRadius: 'var(--radius-md)',
-              padding: '2rem 1.5rem',
-              textAlign: 'center',
-              background: 'var(--bg-canvas)',
-              marginBottom: '1.25rem',
-              cursor: 'pointer',
-            }}
-          >
-            <FileText size={32} color="var(--primary)" style={{ margin: '0 auto 0.5rem' }} />
-            <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-              Click to select or drag PDF / Image receipt here
-            </p>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)' }}>
-              Supported: PDF, PNG, JPG up to 25MB
-            </span>
-          </div>
-
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
             <button
               type="button"
@@ -721,8 +746,8 @@ export default function ProductDetailsView() {
             >
               Cancel
             </button>
-            <button type="submit" className="wv-btn wv-btn-primary">
-              Attach to Vault
+            <button type="submit" className="wv-btn wv-btn-primary" disabled={uploading}>
+              {uploading ? 'Uploading…' : 'Attach to Vault'}
             </button>
           </div>
         </form>

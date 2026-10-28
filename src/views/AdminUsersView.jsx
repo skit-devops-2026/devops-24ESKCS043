@@ -13,36 +13,41 @@ import {
 import Modal from '../components/Modal';
 
 export default function AdminUsersView() {
-  const { users, toggleUserStatus, updateUserRole, notify } = useVault();
+  const { users, toggleUserStatus, createUserAccount, deleteUserAccount, currentUser, notify } = useVault();
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
 
   // Form states
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
-  const [newRole, setNewRole] = useState('User');
-  const [newPlan, setNewPlan] = useState('Premium Plan');
+  const [newPassword, setNewPassword] = useState('');
 
-  const filteredUsers = users.filter((u) => {
-    return (
-      u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase()) ||
-      u.role.toLowerCase().includes(search.toLowerCase())
-    );
-  });
+  const q = search.toLowerCase();
+  const filteredUsers = users.filter((u) => (
+    (u.name || '').toLowerCase().includes(q) ||
+    (u.email || '').toLowerCase().includes(q) ||
+    (u.role || '').toLowerCase().includes(q)
+  ));
 
-  const handleAddUser = (e) => {
+  const handleAddUser = async (e) => {
     e.preventDefault();
     if (!newName.trim() || !newEmail.trim()) {
       notify('Please provide name and email.', 'error');
       return;
     }
-
-    notify(`User "${newName}" registered to platform.`, 'success');
+    if (newPassword.length < 6) {
+      notify('Temporary password must be at least 6 characters.', 'error');
+      return;
+    }
+    const ok = await createUserAccount({ name: newName.trim(), email: newEmail.trim(), password: newPassword });
+    if (!ok) return;
     setShowAddModal(false);
     setNewName('');
     setNewEmail('');
+    setNewPassword('');
   };
+
+  const formatJoined = (iso) => (iso ? new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '—');
 
   return (
     <div className="wv-content">
@@ -108,7 +113,7 @@ export default function AdminUsersView() {
               <tr>
                 <th>Account Holder</th>
                 <th>Role</th>
-                <th>Subscription Plan</th>
+                <th>Documents</th>
                 <th>Status</th>
                 <th>Items Vaulted</th>
                 <th>Member Since</th>
@@ -130,18 +135,12 @@ export default function AdminUsersView() {
                       <span style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)' }}>{user.email}</span>
                     </td>
                     <td>
-                      <select
-                        className="wv-select"
-                        style={{ padding: '0.25rem 0.5rem', fontSize: '0.82rem', width: 'auto' }}
-                        value={user.role}
-                        onChange={(e) => updateUserRole(user.id, e.target.value)}
-                      >
-                        <option value="User">User</option>
-                        <option value="Admin">Admin</option>
-                      </select>
+                      <span className={`wv-badge ${user.role === 'Admin' ? 'wv-badge-expiring' : 'wv-badge-active'}`}>
+                        {user.role}
+                      </span>
                     </td>
                     <td>
-                      <span style={{ fontSize: '0.86rem' }}>{user.plan || 'Standard'}</span>
+                      <strong>{user.documentsCount || 0}</strong>
                     </td>
                     <td>
                       <span className={`wv-badge ${user.status === 'Active' ? 'wv-badge-active' : 'wv-badge-expired'}`}>
@@ -153,17 +152,34 @@ export default function AdminUsersView() {
                     </td>
                     <td>
                       <span style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
-                        {user.joinedDate}
+                        {formatJoined(user.joinedDate)}
                       </span>
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      <button
-                        onClick={() => toggleUserStatus(user.id)}
-                        className={`wv-btn wv-btn-sm ${user.status === 'Active' ? 'wv-btn-danger' : 'wv-btn-secondary'}`}
-                        style={{ fontSize: '0.78rem' }}
-                      >
-                        {user.status === 'Active' ? 'Suspend' : 'Activate'}
-                      </button>
+                      {user.id === currentUser.id ? (
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)' }}>You</span>
+                      ) : (
+                        <div style={{ display: 'inline-flex', gap: '0.35rem' }}>
+                          <button
+                            onClick={() => toggleUserStatus(user.id)}
+                            className={`wv-btn wv-btn-sm ${user.status === 'Active' ? 'wv-btn-danger' : 'wv-btn-secondary'}`}
+                            style={{ fontSize: '0.78rem' }}
+                          >
+                            {user.status === 'Active' ? 'Suspend' : 'Activate'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Delete ${user.name}'s account and ALL their products and documents? This cannot be undone.`)) {
+                                deleteUserAccount(user.id);
+                              }
+                            }}
+                            className="wv-btn wv-btn-danger wv-btn-sm"
+                            title="Delete account"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -177,7 +193,7 @@ export default function AdminUsersView() {
       <Modal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
-        title="Create System User Account"
+        title="Create User Account"
         maxWidth="480px"
       >
         <form onSubmit={handleAddUser}>
@@ -205,31 +221,20 @@ export default function AdminUsersView() {
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div className="wv-form-group">
-              <label className="wv-form-label">System Role</label>
-              <select
-                className="wv-select"
-                value={newRole}
-                onChange={(e) => setNewRole(e.target.value)}
-              >
-                <option value="User">Standard User</option>
-                <option value="Admin">Administrator</option>
-              </select>
-            </div>
-
-            <div className="wv-form-group">
-              <label className="wv-form-label">Plan</label>
-              <select
-                className="wv-select"
-                value={newPlan}
-                onChange={(e) => setNewPlan(e.target.value)}
-              >
-                <option value="Free Tier">Free Tier</option>
-                <option value="Premium Plan">Premium Plan</option>
-                <option value="Business Plus">Business Plus</option>
-              </select>
-            </div>
+          <div className="wv-form-group">
+            <label className="wv-form-label">Temporary Password</label>
+            <input
+              type="text"
+              required
+              minLength={6}
+              className="wv-input"
+              placeholder="At least 6 characters — share it with the user"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+            />
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)', marginTop: '0.3rem', display: 'block' }}>
+              New accounts are always standard users. They can change this password from their Settings page.
+            </span>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>

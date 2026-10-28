@@ -3,7 +3,7 @@ import { useVault } from '../context/VaultContext';
 import { Shield, Lock, Mail, User, ArrowRight, CheckCircle2 } from 'lucide-react';
 
 export default function RegisterView() {
-  const { navigate, notify, login } = useVault();
+  const { navigate, notify, register } = useVault();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -40,35 +40,11 @@ export default function RegisterView() {
       return;
     }
 
-    // Derive a username from the full name (lowercase, no spaces)
-    const username = fullName.trim().toLowerCase().replace(/\s+/g, '_') || email.split('@')[0];
-
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:5000/api/users/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        notify(data.error || 'Registration failed. Try a different email/username.', 'error');
-        return;
-      }
-      // Store JWT
-      localStorage.setItem('token', data.data.token);
-      // Log in immediately after registration
-      login({
-        id: data.data.id,
-        username: data.data.username,
-        name: fullName || data.data.username,
-        email: email,
-        role: 'User',
-        plan: 'Premium Account',
-      });
-      notify(`Account successfully created for ${fullName}!`, 'success');
+      await register({ name: fullName.trim(), email: email.trim(), password });
     } catch (err) {
-      notify('Network error — make sure the backend server is running.', 'error');
+      notify(err.message || 'Registration failed. Try a different email.', 'error');
     } finally {
       setLoading(false);
     }

@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 
 const serviceRecordSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
+  userId: { type: String, required: true, index: true },
   productId: { type: String, required: true },
   productName: { type: String },
   date: { type: String, default: () => new Date().toISOString().split('T')[0] },

@@ -1,401 +1,470 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import {
-  INITIAL_CATEGORIES,
-  INITIAL_SETTINGS,
-} from '../data/initialData';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { api, setToken, getToken, formatCurrency, fileToBase64, MAX_UPLOAD_BYTES, CURRENCIES } from '../api';
 
 const VaultContext = createContext();
 
+const PUBLIC_VIEWS = ['landing', 'login', 'register'];
+const ADMIN_ALLOWED_SHARED = ['settings', 'product-details'];
+
+const DEFAULT_SETTINGS = {
+  currency: 'USD',
+  dateFormat: 'MMM DD, YYYY',
+  notify7Days: true,
+  notify15Days: true,
+  notify30Days: true,
+  emailDigest: true,
+};
+
+const parseHash = () => {
+  const hash = window.location.hash.replace('#/', '').replace('#', '');
+  return hash || 'landing';
+};
+
 export function VaultProvider({ children }) {
-  // --- LocalStorage helpers (per-user scoped keys) ---
-  const loadLocal = (key, fallback) => {
-    try {
-      const saved = localStorage.getItem(key);
-      return saved ? JSON.parse(saved) : fallback;
-    } catch (e) {
-      return fallback;
-    }
-  };
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
 
-  // Load stored session user first so we can build user-scoped keys
-  const storedUser = loadLocal('wv_current_user', null);
-  const uid = storedUser?.id || 'guest';
-
-  // All per-user data is stored under keys scoped by userId
-  const [products, setProducts] = useState(() => loadLocal(`wv_products_${uid}`, []));
-  const [categories, setCategories] = useState(() => loadLocal('wv_categories', INITIAL_CATEGORIES));
-  const [serviceRecords, setServiceRecords] = useState(() => loadLocal(`wv_service_${uid}`, []));
-  const [documents, setDocuments] = useState(() => loadLocal(`wv_documents_${uid}`, []));
-  const [settings, setSettings] = useState(() => loadLocal(`wv_settings_${uid}`, null));
-
-  const [currentUser, setCurrentUser] = useState(storedUser);
-
-  // Routing state
-  const parseHash = () => {
-    const hash = window.location.hash.replace('#/', '').replace('#', '');
-    if (!hash) return 'landing';
-    return hash;
-  };
+  const [products, setProducts] = useState([]);
+  const [rawCategories, setRawCategories] = useState([]);
+  const [serviceRecords, setServiceRecords] = useState([]);
+  const [documents, setDocuments] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [dataLoading, setDataLoading] = useState(false);
 
   const [currentView, setCurrentView] = useState(parseHash());
-  const [selectedProductId, setSelectedProductId] = useState(null);
+  const [selectedProductId, setSelectedProductId] = useState(() => {
+    try { return sessionStorage.getItem('wv_selected_product'); } catch { return null; }
+  });
+  useEffect(() => {
+    try {
+      if (selectedProductId) sessionStorage.setItem('wv_selected_product', selectedProductId);
+    } catch { /* ignore */ }
+  }, [selectedProductId]);
   const [editingProductId, setEditingProductId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [previewDoc, setPreviewDoc] = useState(null);
-  const [theme, setTheme] = useState(() => localStorage.getItem('wv_theme') || 'light');
-
-  // Toast alert system
+  const [theme, setTheme] = useState(() => {
+    try { return localStorage.getItem('wv_theme') || 'light'; } catch { return 'light'; }
+  });
   const [toasts, setToasts] = useState([]);
 
-  // Derive effective settings — merge defaults with stored overrides
-  const effectiveSettings = {
-    ...INITIAL_SETTINGS,
-    fullName: currentUser?.name || '',
-    email: currentUser?.email || '',
-    phone: '',
-    ...(settings || {}),
-  };
+  const isAdmin = currentUser?.role === 'Admin';
 
-  // Sync per-user data to localStorage whenever it changes
-  useEffect(() => {
-    if (!currentUser) return;
-    localStorage.setItem(`wv_products_${currentUser.id}`, JSON.stringify(products));
-  }, [products, currentUser]);
-
-  useEffect(() => {
-    localStorage.setItem('wv_categories', JSON.stringify(categories));
-  }, [categories]);
-
-  useEffect(() => {
-    if (!currentUser) return;
-    localStorage.setItem(`wv_service_${currentUser.id}`, JSON.stringify(serviceRecords));
-  }, [serviceRecords, currentUser]);
-
-  useEffect(() => {
-    if (!currentUser) return;
-    localStorage.setItem(`wv_documents_${currentUser.id}`, JSON.stringify(documents));
-  }, [documents, currentUser]);
-
-  useEffect(() => {
-    if (!currentUser) return;
-    localStorage.setItem(`wv_settings_${currentUser.id}`, JSON.stringify(settings));
-  }, [settings, currentUser]);
-
-  useEffect(() => {
-    localStorage.setItem('wv_current_user', JSON.stringify(currentUser));
-  }, [currentUser]);
-
-  useEffect(() => {
-    localStorage.setItem('wv_theme', theme);
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
-
-  // Listen to hash change for browser back/forward buttons
-  useEffect(() => {
-    const handleHashChange = () => {
-      const view = parseHash();
-      setCurrentView(view);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
-
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+  // ---------- helpers ----------
+  const notify = useCallback((message, type = 'success') => {
+    const id = Date.now() + Math.random().toString();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3800);
   }, []);
 
-  const navigate = (view, params = {}) => {
+  const removeToast = (id) => setToasts((prev) => prev.filter((t) => t.id !== id));
+
+  const navigate = useCallback((view, params = {}) => {
     if (params.productId) setSelectedProductId(params.productId);
     if (params.editProductId) setEditingProductId(params.editProductId);
+    else if (view === 'add-product') setEditingProductId(null);
     setCurrentView(view);
     window.location.hash = `#/${view}`;
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  // Turns an API failure into a toast; logs the user out if the session is gone
+  const logoutRef = useRef(() => {});
+  const handleError = useCallback((err) => {
+    notify(err.message || 'Something went wrong', 'error');
+    if (err.status === 401) logoutRef.current(true);
+  }, [notify]);
+
+  // ---------- data loading ----------
+  const loadData = useCallback(async (user) => {
+    setDataLoading(true);
+    try {
+      const calls = [api('/products'), api('/categories'), api('/documents'), api('/service-records')];
+      if (user.role === 'Admin') calls.push(api('/users'));
+      const [p, c, d, s, u] = await Promise.all(calls);
+      setProducts(p || []);
+      setRawCategories(c || []);
+      setDocuments(d || []);
+      setServiceRecords(s || []);
+      setUsers(u || []);
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setDataLoading(false);
+    }
+  }, [handleError]);
+
+  const clearData = () => {
+    setProducts([]);
+    setRawCategories([]);
+    setDocuments([]);
+    setServiceRecords([]);
+    setUsers([]);
   };
 
-  const notify = (message, type = 'success') => {
-    const id = Date.now() + Math.random().toString();
-    setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3800);
+  // Restore session from the stored JWT on page load
+  useEffect(() => {
+    (async () => {
+      if (getToken()) {
+        try {
+          const me = await api('/users/me');
+          setCurrentUser(me);
+          await loadData(me);
+        } catch {
+          setToken(null);
+        }
+      }
+      setAuthReady(true);
+    })();
+    // Remove data left behind by the old browser-only version of the app
+    try {
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith('wv_') && k !== 'wv_theme')
+        .forEach((k) => localStorage.removeItem(k));
+    } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    try { localStorage.setItem('wv_theme', theme); } catch { /* ignore */ }
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  useEffect(() => {
+    const onHash = () => {
+      setCurrentView(parseHash());
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
+  // ---------- route guard ----------
+  // Logged-out users only see public pages; regular users can never open
+  // admin pages; the admin stays inside the admin console.
+  useEffect(() => {
+    if (!authReady) return;
+    if (!currentUser) {
+      if (!PUBLIC_VIEWS.includes(currentView)) navigate('login');
+      return;
+    }
+    if (PUBLIC_VIEWS.includes(currentView) && currentView !== 'landing') {
+      navigate(isAdmin ? 'admin-dashboard' : 'dashboard');
+      return;
+    }
+    if (!isAdmin && currentView.startsWith('admin-')) {
+      navigate('dashboard');
+      return;
+    }
+    if (isAdmin && currentView !== 'landing' && !currentView.startsWith('admin-')
+      && !ADMIN_ALLOWED_SHARED.includes(currentView)) {
+      navigate('admin-dashboard');
+    }
+  }, [authReady, currentUser, currentView, isAdmin, navigate]);
+
+  // ---------- derived data ----------
+  const settings = useMemo(() => ({
+    ...DEFAULT_SETTINGS,
+    ...(currentUser?.settings || {}),
+    fullName: currentUser?.name || '',
+    email: currentUser?.email || '',
+    phone: currentUser?.phone || '',
+  }), [currentUser]);
+
+  const currency = settings.currency;
+
+  // Attach each product's own documents & service history
+  const productsWithRelations = useMemo(() => products.map((p) => ({
+    ...p,
+    documents: documents.filter((d) => d.productId === p.id),
+    serviceHistory: serviceRecords.filter((s) => s.productId === p.id),
+  })), [products, documents, serviceRecords]);
+
+  const categories = useMemo(() => rawCategories.map((c) => ({
+    ...c,
+    count: products.filter((p) => (p.category || '').toLowerCase() === c.name.toLowerCase()).length,
+  })), [rawCategories, products]);
+
+  /** Format an amount. Users: always their account currency. Admin: the product's own currency. */
+  const formatMoney = useCallback(
+    (amount, cur) => formatCurrency(amount, cur || currency),
+    [currency]
+  );
+
+  /** Sum of items' prices, grouped by currency (admin sees users with different currencies) */
+  const formatTotal = useCallback((items, field = 'price') => {
+    const totals = {};
+    items.forEach((i) => {
+      const c = i.currency || currency;
+      totals[c] = (totals[c] || 0) + (parseFloat(i[field]) || 0);
+    });
+    const keys = Object.keys(totals);
+    if (keys.length === 0) return formatCurrency(0, currency);
+    return keys.map((c) => formatCurrency(totals[c], c)).join(' + ');
+  }, [currency]);
+
+  // ---------- auth ----------
+  const login = async (email, password) => {
+    const { token, user } = await api('/users/login', { method: 'POST', body: { email, password } });
+    setToken(token);
+    setCurrentUser(user);
+    notify(`Welcome, ${user.name}!`, 'success');
+    navigate(user.role === 'Admin' ? 'admin-dashboard' : 'dashboard');
+    loadData(user);
   };
 
-  const removeToast = (id) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+  const register = async ({ name, email, password }) => {
+    const { token, user } = await api('/users/register', { method: 'POST', body: { name, email, password } });
+    setToken(token);
+    setCurrentUser(user);
+    notify(`Account created — welcome, ${user.name}!`, 'success');
+    navigate('dashboard');
+    loadData(user);
   };
+
+  const logout = (expired = false) => {
+    setToken(null);
+    setCurrentUser(null);
+    clearData();
+    setPreviewDoc(null);
+    notify(expired ? 'Your session has ended. Please log in again.' : 'You have been logged out safely.', 'info');
+    navigate('login');
+  };
+  logoutRef.current = logout;
 
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
     notify(`Switched to ${theme === 'light' ? 'Dark' : 'Light'} mode`, 'info');
   };
 
-  // --- CRUD Functions ---
-  const addProduct = (productData) => {
-    const newId = `prod-${Date.now()}`;
-    const product = {
-      ...productData,
-      id: newId,
-      documents: productData.documents || [],
-      serviceHistory: productData.serviceHistory || [],
-    };
-
-    // Calculate status dynamically
-    const now = new Date();
-    const expiry = new Date(product.expiryDate);
-    const diffDays = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24));
-    let status = 'active';
-    if (diffDays <= 0) status = 'expired';
-    else if (diffDays <= 30) status = 'expiring';
-    product.status = status;
-
-    setProducts((prev) => [product, ...prev]);
-
-    // Also update category count
-    setCategories((prev) =>
-      prev.map((cat) =>
-        cat.name.toLowerCase() === product.category.toLowerCase()
-          ? { ...cat, count: cat.count + 1 }
-          : cat
-      )
-    );
-
-    // If documents were uploaded in form, register them in global documents vault
-    if (product.documents && product.documents.length > 0) {
-      const newDocs = product.documents.map((d) => ({
-        ...d,
-        productId: newId,
-        productName: product.name,
-      }));
-      setDocuments((prev) => [...newDocs, ...prev]);
+  // ---------- products ----------
+  const addProduct = async (productData, files = []) => {
+    try {
+      const product = await api('/products', { method: 'POST', body: productData });
+      setProducts((prev) => [product, ...prev]);
+      for (const f of files) {
+        // eslint-disable-next-line no-await-in-loop
+        await uploadDocument({ productId: product.id, file: f.file, name: f.name, type: f.type }, { silent: true });
+      }
+      notify(`"${product.name}" added successfully to your vault!`, 'success');
+      return product.id;
+    } catch (err) {
+      handleError(err);
+      return null;
     }
-
-    notify(`"${product.name}" added successfully to your vault!`, 'success');
-    return newId;
   };
 
-  const updateProduct = (id, updatedData) => {
-    const now = new Date();
-    const expiry = new Date(updatedData.expiryDate);
-    const diffDays = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24));
-    let status = 'active';
-    if (diffDays <= 0) status = 'expired';
-    else if (diffDays <= 30) status = 'expiring';
-
-    setProducts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, ...updatedData, status } : p))
-    );
-    notify(`Product "${updatedData.name || 'item'}" updated successfully.`, 'success');
+  const updateProduct = async (id, updatedData, files = []) => {
+    try {
+      const product = await api(`/products/${id}`, { method: 'PATCH', body: updatedData });
+      setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...product } : p)));
+      setDocuments((prev) => prev.map((d) => (d.productId === id ? { ...d, productName: product.name } : d)));
+      setServiceRecords((prev) => prev.map((s) => (s.productId === id ? { ...s, productName: product.name } : s)));
+      for (const f of files) {
+        // eslint-disable-next-line no-await-in-loop
+        await uploadDocument({ productId: id, file: f.file, name: f.name, type: f.type }, { silent: true });
+      }
+      notify(`Product "${product.name}" updated successfully.`, 'success');
+      return true;
+    } catch (err) {
+      handleError(err);
+      return false;
+    }
   };
 
-  const deleteProduct = (id) => {
+  const deleteProduct = async (id) => {
     const p = products.find((prod) => prod.id === id);
-    setProducts((prev) => prev.filter((prod) => prod.id !== id));
-    setDocuments((prev) => prev.filter((d) => d.productId !== id));
-    setServiceRecords((prev) => prev.filter((s) => s.productId !== id));
-
-    if (p) {
-      setCategories((prev) =>
-        prev.map((cat) =>
-          cat.name.toLowerCase() === p.category.toLowerCase()
-            ? { ...cat, count: Math.max(0, cat.count - 1) }
-            : cat
-        )
-      );
-      notify(`"${p.name}" has been removed from your vault.`, 'info');
+    try {
+      await api(`/products/${id}`, { method: 'DELETE' });
+      setProducts((prev) => prev.filter((prod) => prod.id !== id));
+      setDocuments((prev) => prev.filter((d) => d.productId !== id));
+      setServiceRecords((prev) => prev.filter((s) => s.productId !== id));
+      if (isAdmin) setUsers((prev) => prev.map((u) => (u.id === p?.userId ? { ...u, productsCount: Math.max(0, (u.productsCount || 1) - 1) } : u)));
+      notify(`"${p?.name || 'Product'}" has been removed.`, 'info');
+    } catch (err) {
+      handleError(err);
     }
   };
 
-  const addServiceRecord = (record) => {
-    const newRecord = {
-      ...record,
-      id: `srv-${Date.now()}`,
-      cost: parseFloat(record.cost) || 0,
-    };
-    setServiceRecords((prev) => [newRecord, ...prev]);
-
-    // Also link to product
-    setProducts((prev) =>
-      prev.map((prod) => {
-        if (prod.id === record.productId) {
-          return {
-            ...prod,
-            serviceHistory: [newRecord, ...(prod.serviceHistory || [])],
-          };
-        }
-        return prod;
-      })
-    );
-
-    notify('Service record logged successfully.', 'success');
-  };
-
-  const addDocument = (doc) => {
-    const newDoc = {
-      ...doc,
-      id: `doc-${Date.now()}`,
-      uploadDate: new Date().toISOString().split('T')[0],
-    };
-    setDocuments((prev) => [newDoc, ...prev]);
-
-    // Attach to product
-    if (doc.productId) {
-      setProducts((prev) =>
-        prev.map((p) => {
-          if (p.id === doc.productId) {
-            return {
-              ...p,
-              documents: [newDoc, ...(p.documents || [])],
-            };
-          }
-          return p;
-        })
-      );
-    }
-
-    notify(`Document "${doc.name}" uploaded to vault.`, 'success');
-  };
-
-  const deleteDocument = (id) => {
-    setDocuments((prev) => prev.filter((d) => d.id !== id));
-    notify('Document deleted.', 'info');
-  };
-
-  const toggleUserStatus = (userId) => {
-    setUsers((prev) =>
-      prev.map((u) => {
-        if (u.id === userId) {
-          const nextStatus = u.status === 'Active' ? 'Suspended' : 'Active';
-          notify(`User ${u.name} status updated to ${nextStatus}`, 'info');
-          return { ...u, status: nextStatus };
-        }
-        return u;
-      })
-    );
-  };
-
-  const updateUserRole = (userId, newRole) => {
-    setUsers((prev) =>
-      prev.map((u) => {
-        if (u.id === userId) {
-          notify(`User ${u.name} role changed to ${newRole}`, 'info');
-          return { ...u, role: newRole };
-        }
-        return u;
-      })
-    );
-  };
-
-  const addCategory = (cat) => {
-    const newCat = {
-      ...cat,
-      id: `cat-${Date.now()}`,
-      count: 0,
-      defaultWarrantyMonths: parseInt(cat.defaultWarrantyMonths) || 12,
-    };
-    setCategories((prev) => [...prev, newCat]);
-    notify(`New category "${cat.name}" created.`, 'success');
-  };
-
-  const deleteCategory = (catId) => {
-    setCategories((prev) => prev.filter((c) => c.id !== catId));
-    notify('Category removed.', 'info');
-  };
-
-  const updateUserSettings = (newSettings) => {
-    setSettings((prev) => ({ ...prev, ...newSettings }));
-    if (newSettings.fullName || newSettings.email) {
-      setCurrentUser((prev) => ({
-        ...prev,
-        name: newSettings.fullName || prev.name,
-        email: newSettings.email || prev.email,
-      }));
-    }
-    notify('Settings and preferences saved successfully!', 'success');
-  };
-
-  const login = (userData) => {
-    const id = userData.id;
-
-    // Load this user's own persisted data from their scoped keys
-    const userProducts = loadLocal(`wv_products_${id}`, []);
-    const userService = loadLocal(`wv_service_${id}`, []);
-    const userDocs = loadLocal(`wv_documents_${id}`, []);
-    const userSettings = loadLocal(`wv_settings_${id}`, null);
-
-    setProducts(userProducts);
-    setServiceRecords(userService);
-    setDocuments(userDocs);
-    setSettings(userSettings); // null = will use effectiveSettings defaults
-
-    setCurrentUser(userData);
-    localStorage.setItem('wv_current_user', JSON.stringify(userData));
-    notify(`Welcome, ${userData.name || userData.username}!`, 'success');
-
-    if (userData.role === 'Admin' || userData.role === 'admin') {
-      navigate('admin-dashboard');
-    } else {
-      navigate('dashboard');
+  // ---------- service records ----------
+  const addServiceRecord = async (record) => {
+    try {
+      const saved = await api('/service-records', { method: 'POST', body: record });
+      setServiceRecords((prev) => [saved, ...prev]);
+      notify('Service record logged successfully.', 'success');
+      return true;
+    } catch (err) {
+      handleError(err);
+      return false;
     }
   };
 
-  const logout = () => {
-    setCurrentUser(null);
-    localStorage.removeItem('wv_current_user');
-    localStorage.removeItem('token');
-    notify('You have been logged out safely.', 'info');
-    navigate('login');
-  };
-
-  const switchRole = (newRole) => {
-    if (newRole === 'Admin') {
-      setCurrentUser({
-        id: 'usr-5',
-        name: 'System Administrator',
-        email: 'admin@warrantyvault.io',
-        role: 'Admin',
-        plan: 'Enterprise SuperAdmin',
+  // ---------- documents ----------
+  /** Upload a real file. { productId, file: File, name?, type? } */
+  const uploadDocument = async ({ productId, file, name, type }, { silent = false } = {}) => {
+    if (!file) { notify('Please choose a file to upload.', 'error'); return null; }
+    if (file.size > MAX_UPLOAD_BYTES) { notify(`"${file.name}" is larger than 10 MB.`, 'error'); return null; }
+    try {
+      const dataBase64 = await fileToBase64(file);
+      const doc = await api('/documents', {
+        method: 'POST',
+        body: {
+          productId,
+          name: name || file.name,
+          type,
+          mimeType: file.type || guessMime(file.name),
+          dataBase64,
+        },
       });
-      notify('Switched to Admin Mode', 'info');
-      navigate('admin-dashboard');
-    } else {
-      setCurrentUser({
-        id: 'usr-1',
-        name: 'John Doe',
-        email: 'john@warrantyvault.io',
-        role: 'User',
-        plan: 'Premium Account',
-      });
-      notify('Switched to User Mode', 'info');
-      navigate('dashboard');
+      setDocuments((prev) => [doc, ...prev]);
+      if (!silent) notify(`Document "${doc.name}" uploaded to vault.`, 'success');
+      return doc;
+    } catch (err) {
+      handleError(err);
+      return null;
     }
   };
 
-  const resetToDefaults = () => {
-    setProducts(INITIAL_PRODUCTS);
-    setCategories(INITIAL_CATEGORIES);
-    setServiceRecords(INITIAL_SERVICE_RECORDS);
-    setDocuments(INITIAL_DOCUMENTS);
-    setUsers(INITIAL_USERS);
-    setSettings(INITIAL_SETTINGS);
-    setCurrentUser({
-      id: 'usr-1',
-      name: 'John Doe',
-      email: 'john@warrantyvault.io',
-      role: 'User',
-      plan: 'Premium Account',
-    });
-    localStorage.clear();
-    notify('All data reset to initial demo configuration!', 'info');
-    navigate('dashboard');
+  const deleteDocument = async (id) => {
+    try {
+      await api(`/documents/${id}`, { method: 'DELETE' });
+      setDocuments((prev) => prev.filter((d) => d.id !== id));
+      if (previewDoc?.id === id) setPreviewDoc(null);
+      notify('Document deleted.', 'info');
+    } catch (err) {
+      handleError(err);
+    }
+  };
+
+  /** Fetch the stored file as a Blob (auth header attached) */
+  const fetchDocumentBlob = async (doc) => {
+    const res = await api(`/documents/${doc.id}/file`, { raw: true });
+    return res.blob();
+  };
+
+  const downloadDocument = async (doc) => {
+    try {
+      const blob = await fetchDocumentBlob(doc);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = doc.name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (err) {
+      handleError(err);
+    }
+  };
+
+  // ---------- admin: users ----------
+  const toggleUserStatus = async (userId) => {
+    const u = users.find((x) => x.id === userId);
+    if (!u) return;
+    const nextStatus = u.status === 'Active' ? 'Suspended' : 'Active';
+    try {
+      await api(`/users/${userId}`, { method: 'PATCH', body: { status: nextStatus } });
+      setUsers((prev) => prev.map((x) => (x.id === userId ? { ...x, status: nextStatus } : x)));
+      notify(`${u.name} is now ${nextStatus}.`, 'info');
+    } catch (err) {
+      handleError(err);
+    }
+  };
+
+  const createUserAccount = async ({ name, email, password }) => {
+    try {
+      const u = await api('/users', { method: 'POST', body: { name, email, password } });
+      setUsers((prev) => [...prev, u]);
+      notify(`Account created for ${u.name}.`, 'success');
+      return true;
+    } catch (err) {
+      handleError(err);
+      return false;
+    }
+  };
+
+  const deleteUserAccount = async (userId) => {
+    try {
+      await api(`/users/${userId}`, { method: 'DELETE' });
+      setUsers((prev) => prev.filter((u) => u.id !== userId));
+      setProducts((prev) => prev.filter((p) => p.userId !== userId));
+      setDocuments((prev) => prev.filter((d) => d.userId !== userId));
+      setServiceRecords((prev) => prev.filter((s) => s.userId !== userId));
+      notify('User account and all their data deleted.', 'info');
+    } catch (err) {
+      handleError(err);
+    }
+  };
+
+  // ---------- admin: categories ----------
+  const addCategory = async (cat) => {
+    try {
+      const saved = await api('/categories', { method: 'POST', body: cat });
+      setRawCategories((prev) => [...prev, saved]);
+      notify(`New category "${saved.name}" created.`, 'success');
+    } catch (err) {
+      handleError(err);
+    }
+  };
+
+  const deleteCategory = async (catId) => {
+    try {
+      await api(`/categories/${catId}`, { method: 'DELETE' });
+      setRawCategories((prev) => prev.filter((c) => c.id !== catId));
+      notify('Category removed.', 'info');
+    } catch (err) {
+      handleError(err);
+    }
+  };
+
+  // ---------- profile ----------
+  const updateUserSettings = async ({ fullName, email, phone, ...prefs }) => {
+    try {
+      const me = await api('/users/me', {
+        method: 'PATCH',
+        body: { name: fullName, email, phone, settings: prefs },
+      });
+      const currencyChanged = me.settings.currency !== currentUser.settings?.currency;
+      setCurrentUser(me);
+      if (currencyChanged) {
+        setProducts((prev) => prev.map((p) => (p.userId === me.id ? { ...p, currency: me.settings.currency } : p)));
+      }
+      notify('Settings and preferences saved successfully!', 'success');
+      return true;
+    } catch (err) {
+      handleError(err);
+      return false;
+    }
+  };
+
+  const changePassword = async (currentPassword, newPassword) => {
+    try {
+      await api('/users/me/password', { method: 'POST', body: { currentPassword, newPassword } });
+      notify('Password changed successfully! Use the new password next time you log in.', 'success');
+      return true;
+    } catch (err) {
+      // a wrong current password is a 400, not an expired session
+      notify(err.message, 'error');
+      return false;
+    }
   };
 
   return (
     <VaultContext.Provider
       value={{
-        products,
+        products: productsWithRelations,
         categories,
         serviceRecords,
         documents,
-        settings: effectiveSettings,
+        users,
+        settings,
+        currency,
+        currencySymbol: (CURRENCIES[currency] || CURRENCIES.USD).symbol,
         currentUser,
+        isAdmin,
+        authReady,
+        dataLoading,
         currentView,
         selectedProductId,
         editingProductId,
@@ -411,26 +480,39 @@ export function VaultProvider({ children }) {
         setEditingProductId,
         setSearchQuery,
         setPreviewDoc,
+        formatMoney,
+        formatTotal,
         addProduct,
         updateProduct,
         deleteProduct,
         addServiceRecord,
-        addDocument,
+        uploadDocument,
         deleteDocument,
+        fetchDocumentBlob,
+        downloadDocument,
         toggleUserStatus,
-        updateUserRole,
+        createUserAccount,
+        deleteUserAccount,
         addCategory,
         deleteCategory,
         updateUserSettings,
+        changePassword,
         login,
+        register,
         logout,
-        switchRole,
-        resetToDefaults,
       }}
     >
       {children}
     </VaultContext.Provider>
   );
+}
+
+function guessMime(name = '') {
+  const ext = name.split('.').pop().toLowerCase();
+  return {
+    pdf: 'application/pdf', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+    webp: 'image/webp', gif: 'image/gif', txt: 'text/plain',
+  }[ext] || 'application/octet-stream';
 }
 
 export const useVault = () => useContext(VaultContext);

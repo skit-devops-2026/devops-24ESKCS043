@@ -21,6 +21,8 @@ export default function Navbar({ onToggleSidebar }) {
     toggleTheme,
     navigate,
     products,
+    isAdmin,
+    logout,
   } = useVault();
 
   const [showNotifications, setShowNotifications] = useState(false);
@@ -36,12 +38,13 @@ export default function Navbar({ onToggleSidebar }) {
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      navigate('products');
+      navigate(isAdmin ? 'admin-products' : 'products');
     }
   };
 
-  const initials = currentUser.name
-    .split(' ')
+  const initials = (currentUser.name || currentUser.email || '?')
+    .trim()
+    .split(/\s+/)
     .map((n) => n[0])
     .join('')
     .substring(0, 2)
@@ -72,7 +75,7 @@ export default function Navbar({ onToggleSidebar }) {
 
       {/* Right side: Add Product + Theme + Notifications + User Avatar */}
       <div className="wv-top-nav-right">
-        {currentUser.role !== 'Admin' && (
+        {!isAdmin && (
           <button
             onClick={() => navigate('add-product')}
             className="wv-btn wv-btn-primary wv-btn-sm"
@@ -209,7 +212,7 @@ export default function Navbar({ onToggleSidebar }) {
                 {currentUser.name}
               </span>
               <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>
-                {currentUser.plan || currentUser.role}
+                {isAdmin ? 'Administrator' : currentUser.email}
               </span>
             </div>
             <ChevronDown size={14} color="var(--text-tertiary)" />
@@ -240,21 +243,11 @@ export default function Navbar({ onToggleSidebar }) {
               >
                 Profile & Settings
               </button>
-              <button
-                onClick={() => {
-                  navigate(currentUser.role === 'Admin' ? 'dashboard' : 'admin-dashboard');
-                  setShowProfileMenu(false);
-                }}
-                className="wv-nav-item"
-                style={{ padding: '0.6rem 0.8rem' }}
-              >
-                {currentUser.role === 'Admin' ? 'Switch to User View' : 'Admin Control Panel'}
-              </button>
               <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '0.4rem 0' }} />
               <button
                 onClick={() => {
-                  navigate('landing');
                   setShowProfileMenu(false);
+                  logout();
                 }}
                 className="wv-nav-item"
                 style={{ padding: '0.6rem 0.8rem', color: 'var(--accent-rose)' }}

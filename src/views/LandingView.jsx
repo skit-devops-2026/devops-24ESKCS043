@@ -20,7 +20,9 @@ import {
 } from 'lucide-react';
 
 export default function LandingView() {
-  const { navigate, theme, toggleTheme } = useVault();
+  const { navigate, theme, toggleTheme, currentUser, isAdmin } = useVault();
+  // Signed-in visitors go to their own portal; everyone else creates an account
+  const goToApp = () => navigate(currentUser ? (isAdmin ? 'admin-dashboard' : 'dashboard') : 'register');
   const [activeFaq, setActiveFaq] = useState(null);
 
   // Interactive Quick Calculator state
@@ -39,7 +41,7 @@ export default function LandingView() {
     },
     {
       q: 'Is there an Admin panel for team or household multi-user management?',
-      a: 'Absolutely! Warranty Vault features an enterprise-grade Admin mode with category customization, user privileges, system audit logs, and analytics export.',
+      a: 'Yes. A dedicated administrator account can manage registered users, product categories, platform-wide reports and analytics exports. Regular user accounts never have access to admin controls.',
     },
     {
       q: 'What happens when a warranty is about to expire?',
@@ -82,17 +84,19 @@ export default function LandingView() {
             FAQs
           </a>
 
+          {!currentUser && (
+            <button
+              onClick={() => navigate('login')}
+              className="wv-btn wv-btn-secondary wv-btn-sm"
+            >
+              Sign In
+            </button>
+          )}
           <button
-            onClick={() => navigate('login')}
-            className="wv-btn wv-btn-secondary wv-btn-sm"
-          >
-            Sign In
-          </button>
-          <button
-            onClick={() => navigate('dashboard')}
+            onClick={goToApp}
             className="wv-btn wv-btn-primary wv-btn-sm"
           >
-            <span>Live Demo</span>
+            <span>{currentUser ? 'Open My Vault' : 'Get Started'}</span>
             <ArrowRight size={15} />
           </button>
         </div>
@@ -115,21 +119,23 @@ export default function LandingView() {
 
         <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap' }}>
           <button
-            onClick={() => navigate('dashboard')}
+            onClick={goToApp}
             className="wv-btn wv-btn-primary"
             style={{ padding: '0.9rem 2rem', fontSize: '1.05rem' }}
           >
             <Zap size={18} />
-            <span>Open User Dashboard Demo</span>
+            <span>{currentUser ? 'Go to My Dashboard' : 'Create Free Account'}</span>
           </button>
-          <button
-            onClick={() => navigate('admin-dashboard')}
-            className="wv-btn wv-btn-secondary"
-            style={{ padding: '0.9rem 2rem', fontSize: '1.05rem' }}
-          >
-            <Lock size={18} />
-            <span>Explore Admin Console</span>
-          </button>
+          {!currentUser && (
+            <button
+              onClick={() => navigate('login')}
+              className="wv-btn wv-btn-secondary"
+              style={{ padding: '0.9rem 2rem', fontSize: '1.05rem' }}
+            >
+              <Lock size={18} />
+              <span>Sign In</span>
+            </button>
+          )}
         </div>
 
         {/* Live Metrics Ticker Banner */}
@@ -416,7 +422,7 @@ export default function LandingView() {
                 By timely claiming manufacturer repairs and avoiding unnecessary out-of-pocket replacements.
               </p>
               <button
-                onClick={() => navigate('dashboard')}
+                onClick={goToApp}
                 className="wv-btn wv-btn-secondary"
                 style={{ marginTop: '1.25rem', width: '100%', background: '#ffffff', color: 'var(--primary)' }}
               >
@@ -525,16 +531,10 @@ export default function LandingView() {
 
           <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.88rem' }}>
             <button
-              onClick={() => navigate('dashboard')}
+              onClick={goToApp}
               style={{ background: 'none', border: 'none', color: '#cbd5e1', cursor: 'pointer' }}
             >
-              User Portal
-            </button>
-            <button
-              onClick={() => navigate('admin-dashboard')}
-              style={{ background: 'none', border: 'none', color: '#cbd5e1', cursor: 'pointer' }}
-            >
-              Admin Portal
+              {currentUser ? 'My Vault' : 'Create Account'}
             </button>
             <button
               onClick={() => navigate('login')}

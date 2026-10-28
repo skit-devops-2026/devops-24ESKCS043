@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 export default function AnalyticsView() {
-  const { products, categories, serviceRecords } = useVault();
+  const { products, categories, serviceRecords , formatMoney } = useVault();
 
   // Financial calculations
   const totalValue = products.reduce((acc, p) => acc + (parseFloat(p.price) || 0), 0);
@@ -47,7 +47,7 @@ export default function AnalyticsView() {
           </div>
           <div>
             <div className="wv-stat-label">Total Vault Asset Value</div>
-            <div className="wv-stat-number">${totalValue.toLocaleString()}</div>
+            <div className="wv-stat-number">{formatMoney(totalValue)}</div>
           </div>
         </div>
 
@@ -57,7 +57,7 @@ export default function AnalyticsView() {
           </div>
           <div>
             <div className="wv-stat-label">Under Active Warranty</div>
-            <div className="wv-stat-number">${activeValue.toLocaleString()}</div>
+            <div className="wv-stat-number">{formatMoney(activeValue)}</div>
           </div>
         </div>
 
@@ -67,7 +67,7 @@ export default function AnalyticsView() {
           </div>
           <div>
             <div className="wv-stat-label">At-Risk (Expiring Soon)</div>
-            <div className="wv-stat-number">${atRiskValue.toLocaleString()}</div>
+            <div className="wv-stat-number">{formatMoney(atRiskValue)}</div>
           </div>
         </div>
 
@@ -104,7 +104,7 @@ export default function AnalyticsView() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: '0.4rem' }}>
                       <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{cat.name}</span>
                       <span style={{ color: 'var(--text-secondary)' }}>
-                        ${catValue.toLocaleString()} ({pct}%)
+                        {formatMoney(catValue)} ({pct}%)
                       </span>
                     </div>
                     <div className="wv-gauge-bar" style={{ height: '8px' }}>
@@ -192,7 +192,7 @@ export default function AnalyticsView() {
                   💡 Financial Risk Assessment
                 </h4>
                 <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                  You currently have <strong>${atRiskValue.toLocaleString()}</strong> of hardware nearing the end of official manufacturer guarantee. We advise checking for fan noise, battery life, or port loose connections before warranties expire.
+                  You currently have <strong>{formatMoney(atRiskValue)}</strong> of hardware nearing the end of official manufacturer guarantee. We advise checking for fan noise, battery life, or port loose connections before warranties expire.
                 </p>
               </div>
             </div>

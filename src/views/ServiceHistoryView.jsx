@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { localToday } from '../api';
 import { useVault } from '../context/VaultContext';
 import {
   Wrench,
@@ -13,7 +14,7 @@ import {
 import Modal from '../components/Modal';
 
 export default function ServiceHistoryView() {
-  const { serviceRecords, products, addServiceRecord, notify } = useVault();
+  const { serviceRecords, products, addServiceRecord, notify , formatMoney, currencySymbol } = useVault();
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
 
@@ -24,6 +25,11 @@ export default function ServiceHistoryView() {
   const [cost, setCost] = useState('0');
   const [status, setStatus] = useState('Completed');
   const [notes, setNotes] = useState('');
+  const [date, setDate] = useState(localToday());
+
+  useEffect(() => {
+    if (!products.find((p) => p.id === selectedProductId)) setSelectedProductId(products[0]?.id || '');
+  }, [products, selectedProductId]);
 
   // Metrics
   const totalRepairs = serviceRecords.length;
@@ -39,22 +45,31 @@ export default function ServiceHistoryView() {
     );
   });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const prod = products.find((p) => p.id === selectedProductId) || { id: 'prod-unknown', name: 'Item' };
+    const prod = products.find((p) => p.id === selectedProductId);
+    if (!prod) {
+      notify('Add a product first, then log its service records.', 'error');
+      return;
+    }
 
-    addServiceRecord({
+    if (date > localToday()) {
+      notify('Service date cannot be in the future.', 'error');
+      return;
+    }
+    const ok = await addServiceRecord({
       productId: prod.id,
-      productName: prod.name,
-      date: new Date().toISOString().split('T')[0],
+      date,
       center: center || 'Authorized Tech Hub',
       issue,
       cost: parseFloat(cost) || 0,
       status,
       notes,
     });
+    if (!ok) return;
 
     setShowModal(false);
+    setDate(localToday());
     setIssue('');
     setCost('0');
     setNotes('');
@@ -108,7 +123,7 @@ export default function ServiceHistoryView() {
           </div>
           <div>
             <div className="wv-stat-label">Out-of-Pocket Spend</div>
-            <div className="wv-stat-number">${totalCost}</div>
+            <div className="wv-stat-number">{formatMoney(totalCost)}</div>
           </div>
         </div>
       </div>
@@ -198,7 +213,7 @@ export default function ServiceHistoryView() {
                     </td>
                     <td>
                       <strong style={{ color: item.cost > 0 ? 'var(--text-primary)' : 'var(--accent-emerald)' }}>
-                        {item.cost > 0 ? `$${item.cost}` : 'Free (Warranty)'}
+                        {item.cost > 0 ? formatMoney(item.cost) : 'Free (Warranty)'}
                       </strong>
                     </td>
                     <td>
@@ -269,7 +284,18 @@ export default function ServiceHistoryView() {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div className="wv-form-group">
-              <label className="wv-form-label">Charged Cost ($)</label>
+              <label className="wv-form-label">Service Date</label>
+              <input
+                type="date"
+                required
+                className="wv-input"
+                max={localToday()}
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+              />
+            </div>
+            <div className="wv-form-group">
+              <label className="wv-form-label">Charged Cost ({currencySymbol})</label>
               <input
                 type="number"
                 min="0"

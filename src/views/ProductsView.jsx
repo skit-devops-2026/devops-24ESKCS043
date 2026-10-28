@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 
 export default function ProductsView() {
-  const { products, categories, navigate, deleteProduct, searchQuery, setSearchQuery } = useVault();
+  const { products, categories, navigate, deleteProduct, searchQuery, setSearchQuery , formatMoney } = useVault();
 
   const [viewMode, setViewMode] = useState('table'); // 'grid' or 'table'
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -279,7 +279,7 @@ export default function ProductsView() {
                       </td>
                       <td>
                         <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>
-                          ${product.price}
+                          {formatMoney(product.price)}
                         </div>
                         <div style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)' }}>
                           {product.retailer || 'Retailer Store'}
@@ -400,7 +400,7 @@ export default function ProductsView() {
                     </div>
                     <div>
                       <span style={{ color: 'var(--text-tertiary)', display: 'block' }}>VALUE</span>
-                      <strong>${product.price}</strong>
+                      <strong>{formatMoney(product.price)}</strong>
                     </div>
                   </div>
                 </div>

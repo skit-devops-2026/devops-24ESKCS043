@@ -8,7 +8,6 @@ import {
   Moon,
   Sun,
   Lock,
-  RotateCcw,
   Save,
   CheckCircle2,
 } from 'lucide-react';
@@ -19,14 +18,17 @@ export default function SettingsView() {
     updateUserSettings,
     theme,
     toggleTheme,
-    resetToDefaults,
+    changePassword,
     notify,
+    isAdmin,
   } = useVault();
 
-  const [fullName, setFullName] = useState(settings.fullName || 'John Doe');
-  const [email, setEmail] = useState(settings.email || 'john@warrantyvault.io');
-  const [phone, setPhone] = useState(settings.phone || '+1 (555) 382-9012');
+  const [fullName, setFullName] = useState(settings.fullName || '');
+  const [email, setEmail] = useState(settings.email || '');
+  const [phone, setPhone] = useState(settings.phone || '');
   const [currency, setCurrency] = useState(settings.currency || 'USD');
+  const [saving, setSaving] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
   const [notify30, setNotify30] = useState(settings.notify30Days ?? true);
   const [notify15, setNotify15] = useState(settings.notify15Days ?? true);
   const [notify7, setNotify7] = useState(settings.notify7Days ?? true);
@@ -37,9 +39,10 @@ export default function SettingsView() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  const handleSaveProfile = (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
-    updateUserSettings({
+    setSaving(true);
+    await updateUserSettings({
       fullName,
       email,
       phone,
@@ -49,9 +52,10 @@ export default function SettingsView() {
       notify7Days: notify7,
       emailDigest,
     });
+    setSaving(false);
   };
 
-  const handlePasswordChange = (e) => {
+  const handlePasswordChange = async (e) => {
     e.preventDefault();
     if (!currentPassword) {
       notify('Please enter your current password.', 'error');
@@ -65,10 +69,18 @@ export default function SettingsView() {
       notify('Password should have at least 6 characters.', 'error');
       return;
     }
-    notify('Password changed successfully!', 'success');
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
+    if (newPassword === currentPassword) {
+      notify('New password must be different from your current password.', 'error');
+      return;
+    }
+    setChangingPassword(true);
+    const ok = await changePassword(currentPassword, newPassword);
+    setChangingPassword(false);
+    if (ok) {
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    }
   };
 
   return (
@@ -122,6 +134,7 @@ export default function SettingsView() {
                 <input
                   type="tel"
                   className="wv-input"
+                  placeholder="Optional — e.g. +91 98765 43210"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                 />
@@ -138,8 +151,11 @@ export default function SettingsView() {
                   <option value="EUR">EUR (€)</option>
                   <option value="GBP">GBP (£)</option>
                   <option value="INR">INR (₹)</option>
-                  <option value="CAD">CAD ($)</option>
+                  <option value="CAD">CAD (CA$)</option>
                 </select>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)', marginTop: '0.35rem', display: 'block' }}>
+                  Used for every price and total across your vault. Saved when you click “Save Preferences”.
+                </span>
               </div>
             </div>
           </div>
@@ -261,10 +277,11 @@ export default function SettingsView() {
           <button
             type="submit"
             className="wv-btn wv-btn-primary"
-            style={{ padding: '0.75rem 2rem' }}
+            disabled={saving}
+            style={{ padding: '0.75rem 2rem', opacity: saving ? 0.7 : 1 }}
           >
             <Save size={18} />
-            <span>Save Preferences</span>
+            <span>{saving ? 'Saving…' : 'Save Preferences'}</span>
           </button>
         </div>
       </form>
@@ -318,46 +335,14 @@ export default function SettingsView() {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
-              <button type="submit" className="wv-btn wv-btn-secondary">
-                Update Password
+              <button type="submit" className="wv-btn wv-btn-secondary" disabled={changingPassword}>
+                {changingPassword ? 'Updating…' : 'Update Password'}
               </button>
             </div>
           </form>
         </div>
       </div>
 
-      {/* Reset Demo Data Card */}
-      <div
-        style={{
-          background: 'var(--status-expired-bg)',
-          border: '1px solid var(--status-expired-border)',
-          borderRadius: 'var(--radius-lg)',
-          padding: '1.5rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '1rem',
-          marginBottom: '3rem',
-        }}
-      >
-        <div>
-          <strong style={{ fontSize: '1rem', color: 'var(--accent-rose)' }}>
-            Reset Demo Environment
-          </strong>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-            Want to start over with pristine sample products, documents, and service logs?
-          </p>
-        </div>
-
-        <button
-          onClick={resetToDefaults}
-          className="wv-btn wv-btn-danger"
-        >
-          <RotateCcw size={16} />
-          <span>Reset All Mock Data</span>
-        </button>
-      </div>
     </div>
   );
 }

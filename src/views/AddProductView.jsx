@@ -15,6 +15,7 @@ import {
   CheckCircle,
   X,
 } from 'lucide-react';
+import { localToday, MAX_UPLOAD_BYTES, ACCEPTED_FILE_TYPES } from '../api';
 
 export default function AddProductView() {
   const {
@@ -26,7 +27,10 @@ export default function AddProductView() {
     setEditingProductId,
     navigate,
     notify,
+    currencySymbol,
   } = useVault();
+  const today = localToday();
+  const [saving, setSaving] = useState(false);
 
   // If in edit mode, populate from existing product
   const editingProduct = editingProductId
@@ -38,11 +42,10 @@ export default function AddProductView() {
   const [model, setModel] = useState('');
   const [category, setCategory] = useState(categories[0]?.name || 'Electronics');
   const [serialNumber, setSerialNumber] = useState('');
-  const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
+  const [purchaseDate, setPurchaseDate] = useState(localToday());
   const [warrantyMonths, setWarrantyMonths] = useState(24);
   const [expiryDate, setExpiryDate] = useState('');
-  const [price, setPrice] = useState('999');
-  const [currency, setCurrency] = useState('USD');
+  const [price, setPrice] = useState('');
   const [retailer, setRetailer] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [notes, setNotes] = useState('');
@@ -51,8 +54,9 @@ export default function AddProductView() {
   // Auto-calculate expiry date when purchaseDate or warrantyMonths changes
   useEffect(() => {
     if (purchaseDate && warrantyMonths) {
-      const pDate = new Date(purchaseDate);
-      pDate.setMonth(pDate.getMonth() + parseInt(warrantyMonths, 10));
+      const pDate = new Date(`${purchaseDate}T00:00:00Z`);
+      if (Number.isNaN(pDate.getTime())) return;
+      pDate.setUTCMonth(pDate.getUTCMonth() + parseInt(warrantyMonths, 10));
       setExpiryDate(pDate.toISOString().split('T')[0]);
     }
   }, [purchaseDate, warrantyMonths]);
@@ -65,15 +69,14 @@ export default function AddProductView() {
       setModel(editingProduct.model || '');
       setCategory(editingProduct.category || categories[0]?.name || 'Electronics');
       setSerialNumber(editingProduct.serialNumber || '');
-      setPurchaseDate(editingProduct.purchaseDate || new Date().toISOString().split('T')[0]);
+      setPurchaseDate(editingProduct.purchaseDate || localToday());
       setWarrantyMonths(editingProduct.warrantyMonths || 24);
       setExpiryDate(editingProduct.expiryDate || '');
       setPrice(editingProduct.price ? String(editingProduct.price) : '0');
-      setCurrency(editingProduct.currency || 'USD');
       setRetailer(editingProduct.retailer || '');
       setInvoiceNumber(editingProduct.invoiceNumber || '');
       setNotes(editingProduct.notes || '');
-      setUploadedFiles(editingProduct.documents || []);
+      setUploadedFiles([]);
     }
   }, [editingProduct, categories]);
 
@@ -87,30 +90,38 @@ export default function AddProductView() {
     notify('Generated unique serial number: ' + res, 'info');
   };
 
-  const handleSimulatedFileUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const newDoc = {
-        id: `doc-${Date.now()}`,
+  // Files are kept in memory and uploaded right after the product is saved
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    files.forEach((file) => {
+      if (file.size > MAX_UPLOAD_BYTES) {
+        notify(`"${file.name}" is larger than 10 MB and was skipped.`, 'error');
+        return;
+      }
+      setUploadedFiles((prev) => [...prev, {
+        id: `pending-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        file,
         name: file.name,
-        type: file.name.endsWith('.pdf') ? 'Invoice' : 'Receipt',
-        size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-        uploadDate: new Date().toISOString().split('T')[0],
-      };
-      setUploadedFiles((prev) => [...prev, newDoc]);
-      notify(`Attached "${file.name}" to product.`, 'success');
-    }
+        type: /\.pdf$/i.test(file.name) ? 'Invoice' : 'Receipt',
+        size: file.size < 1024 * 1024 ? `${Math.max(1, Math.round(file.size / 1024))} KB` : `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+      }]);
+    });
   };
 
   const removeUploadedFile = (docId) => {
     setUploadedFiles((prev) => prev.filter((d) => d.id !== docId));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!name.trim()) {
       notify('Please enter a product name.', 'error');
+      return;
+    }
+    if (!purchaseDate || purchaseDate > today) {
+      notify('Purchase date cannot be in the future.', 'error');
       return;
     }
 
@@ -124,20 +135,22 @@ export default function AddProductView() {
       warrantyMonths: parseInt(warrantyMonths, 10) || 12,
       expiryDate,
       price: parseFloat(price) || 0,
-      currency,
       retailer,
       invoiceNumber: invoiceNumber || `INV-${Math.floor(10000 + Math.random() * 90000)}`,
       notes,
-      documents: uploadedFiles,
     };
 
+    setSaving(true);
     if (editingProduct) {
-      updateProduct(editingProduct.id, payload);
+      const ok = await updateProduct(editingProduct.id, payload, uploadedFiles);
+      setSaving(false);
+      if (!ok) return;
       setEditingProductId(null);
       navigate('product-details', { productId: editingProduct.id });
     } else {
-      const newId = addProduct(payload);
-      navigate('product-details', { productId: newId });
+      const newId = await addProduct(payload, uploadedFiles);
+      setSaving(false);
+      if (newId) navigate('product-details', { productId: newId });
     }
   };
 
@@ -248,12 +261,13 @@ export default function AddProductView() {
               </div>
 
               <div className="wv-form-group">
-                <label className="wv-form-label">Purchase Price ($)</label>
+                <label className="wv-form-label">Purchase Price ({currencySymbol})</label>
                 <input
                   type="number"
                   min="0"
                   step="0.01"
                   className="wv-input"
+                  placeholder="0"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
                 />
@@ -278,9 +292,15 @@ export default function AddProductView() {
                   type="date"
                   required
                   className="wv-input"
+                  max={today}
                   value={purchaseDate}
                   onChange={(e) => setPurchaseDate(e.target.value)}
                 />
+                {purchaseDate > today && (
+                  <span style={{ fontSize: '0.78rem', color: 'var(--accent-rose)', marginTop: '0.3rem', display: 'block' }}>
+                    Purchase date cannot be in the future.
+                  </span>
+                )}
               </div>
 
               <div className="wv-form-group">
@@ -313,11 +333,10 @@ export default function AddProductView() {
                 <label className="wv-form-label">Calculated Expiry Date</label>
                 <input
                   type="date"
-                  required
+                  readOnly
                   className="wv-input"
                   style={{ background: 'var(--bg-canvas)', fontWeight: 700 }}
                   value={expiryDate}
-                  onChange={(e) => setExpiryDate(e.target.value)}
                 />
               </div>
 
@@ -381,22 +400,29 @@ export default function AddProductView() {
               <input
                 type="file"
                 style={{ display: 'none' }}
-                onChange={handleSimulatedFileUpload}
-                accept=".pdf,image/*"
+                multiple
+                onChange={handleFileSelect}
+                accept={ACCEPTED_FILE_TYPES}
               />
               <UploadCloud size={40} color="var(--primary)" style={{ margin: '0 auto 0.75rem' }} />
               <strong style={{ fontSize: '1rem', color: 'var(--text-primary)', display: 'block' }}>
                 Click to attach Receipt or Drag & Drop File
               </strong>
               <p style={{ fontSize: '0.84rem', color: 'var(--text-tertiary)', marginTop: '0.25rem' }}>
-                Upload PDF invoices, scan photo receipts, or warranty agreements.
+                PDF invoices, photos of receipts or warranty cards — up to 10 MB each.
               </p>
             </label>
+
+            {editingProduct && editingProduct.documents?.length > 0 && (
+              <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginTop: '1rem' }}>
+                {editingProduct.documents.length} document(s) already attached — view, download or delete them on the product page.
+              </p>
+            )}
 
             {uploadedFiles.length > 0 && (
               <div style={{ marginTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                 <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  Attached Documents ({uploadedFiles.length})
+                  Will be uploaded on save ({uploadedFiles.length})
                 </span>
                 {uploadedFiles.map((doc) => (
                   <div
@@ -414,7 +440,7 @@ export default function AddProductView() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                       <FileText size={18} color="var(--primary)" />
                       <strong style={{ fontSize: '0.88rem', color: 'var(--text-primary)' }}>{doc.name}</strong>
-                      <span style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)' }}>({doc.size || '1.1 MB'})</span>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)' }}>({doc.size})</span>
                     </div>
 
                     <button
@@ -447,10 +473,11 @@ export default function AddProductView() {
           <button
             type="submit"
             className="wv-btn wv-btn-primary"
-            style={{ padding: '0.75rem 2rem' }}
+            disabled={saving}
+            style={{ padding: '0.75rem 2rem', opacity: saving ? 0.7 : 1 }}
           >
             <Save size={18} />
-            <span>{editingProduct ? 'Save Changes' : 'Register to Vault'}</span>
+            <span>{saving ? 'Saving…' : editingProduct ? 'Save Changes' : 'Register to Vault'}</span>
           </button>
         </div>
       </form>

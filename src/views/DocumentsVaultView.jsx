@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useVault } from '../context/VaultContext';
 import {
   FileText,
@@ -12,13 +12,15 @@ import {
   Shield,
 } from 'lucide-react';
 import Modal from '../components/Modal';
+import FileDropzone from '../components/FileDropzone';
 
 export default function DocumentsVaultView() {
   const {
     documents,
     products,
-    addDocument,
+    uploadDocument,
     deleteDocument,
+    downloadDocument,
     setPreviewDoc,
     notify,
   } = useVault();
@@ -31,6 +33,13 @@ export default function DocumentsVaultView() {
   const [selectedProductId, setSelectedProductId] = useState(products[0]?.id || '');
   const [docName, setDocName] = useState('');
   const [docType, setDocType] = useState('Receipt');
+  const [docFile, setDocFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+
+  // products load asynchronously — pick the first one once they arrive
+  useEffect(() => {
+    if (!products.find((p) => p.id === selectedProductId)) setSelectedProductId(products[0]?.id || '');
+  }, [products, selectedProductId]);
 
   const filteredDocs = documents.filter((doc) => {
     const matchesTab = activeTab === 'All' || doc.type === activeTab;
@@ -40,25 +49,28 @@ export default function DocumentsVaultView() {
     return matchesTab && matchesSearch;
   });
 
-  const handleUploadSubmit = (e) => {
+  const handleUploadSubmit = async (e) => {
     e.preventDefault();
-    if (!docName.trim()) {
-      notify('Please enter a document title.', 'error');
+    if (!selectedProductId) {
+      notify('Add a product first — every document is linked to a product.', 'error');
       return;
     }
+    if (!docFile) {
+      notify('Please choose a file to upload.', 'error');
+      return;
+    }
+    const ext = docFile.name.includes('.') ? docFile.name.slice(docFile.name.lastIndexOf('.')) : '';
+    const title = docName.trim()
+      ? (docName.trim().toLowerCase().endsWith(ext.toLowerCase()) ? docName.trim() : `${docName.trim()}${ext}`)
+      : docFile.name;
 
-    const prod = products.find((p) => p.id === selectedProductId) || { id: 'prod-general', name: 'General Vault Item' };
-
-    addDocument({
-      productId: prod.id,
-      productName: prod.name,
-      name: docName.endsWith('.pdf') ? docName : `${docName}.pdf`,
-      type: docType,
-      size: '1.8 MB',
-    });
-
+    setUploading(true);
+    const saved = await uploadDocument({ productId: selectedProductId, file: docFile, name: title, type: docType });
+    setUploading(false);
+    if (!saved) return;
     setShowUploadModal(false);
     setDocName('');
+    setDocFile(null);
   };
 
   return (
@@ -204,8 +216,8 @@ export default function DocumentsVaultView() {
                 </p>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--text-tertiary)', marginTop: '1rem' }}>
-                  <span>Size: {doc.size || '1.2 MB'}</span>
-                  <span>Uploaded: {doc.uploadDate || 'Active'}</span>
+                  <span>Size: {doc.size}</span>
+                  <span>Uploaded: {doc.uploadDate}</span>
                 </div>
               </div>
 
@@ -224,19 +236,21 @@ export default function DocumentsVaultView() {
                   className="wv-btn wv-btn-secondary wv-btn-sm"
                 >
                   <Eye size={14} />
-                  <span>Preview</span>
+                  <span>View</span>
                 </button>
 
                 <div style={{ display: 'flex', gap: '0.35rem' }}>
                   <button
-                    onClick={() => notify(`Downloading "${doc.name}"...`, 'info')}
+                    onClick={() => downloadDocument(doc)}
                     className="wv-btn wv-btn-secondary wv-btn-sm"
                     title="Download document"
                   >
                     <Download size={14} />
                   </button>
                   <button
-                    onClick={() => deleteDocument(doc.id)}
+                    onClick={() => {
+                      if (window.confirm(`Delete "${doc.name}" permanently?`)) deleteDocument(doc.id);
+                    }}
                     className="wv-btn wv-btn-danger wv-btn-sm"
                     title="Delete document"
                   >
@@ -257,6 +271,19 @@ export default function DocumentsVaultView() {
         maxWidth="500px"
       >
         <form onSubmit={handleUploadSubmit}>
+          {products.length === 0 && (
+            <p style={{ fontSize: '0.88rem', color: 'var(--accent-rose)', marginBottom: '1rem' }}>
+              You have no products yet. Add a product first, then attach its documents.
+            </p>
+          )}
+          <FileDropzone
+            file={docFile}
+            onChange={(f) => {
+              setDocFile(f);
+              if (f && !docName) setDocName(f.name.replace(/\.[^.]+$/, ''));
+            }}
+            onError={(m) => notify(m, 'error')}
+          />
           <div className="wv-form-group">
             <label className="wv-form-label">Link to Product</label>
             <select
@@ -276,9 +303,8 @@ export default function DocumentsVaultView() {
             <label className="wv-form-label">Document Name</label>
             <input
               type="text"
-              required
               className="wv-input"
-              placeholder="e.g. BestBuy_Invoice_Receipt"
+              placeholder="Defaults to the file name"
               value={docName}
               onChange={(e) => setDocName(e.target.value)}
             />
@@ -293,7 +319,10 @@ export default function DocumentsVaultView() {
             >
               <option value="Receipt">Tax Invoice / Receipt</option>
               <option value="Warranty Card">Warranty Certificate</option>
+              <option value="Invoice">Invoice</option>
               <option value="Service Invoice">Repair / Maintenance Bill</option>
+              <option value="Manual">User Manual</option>
+              <option value="Other">Other</option>
             </select>
           </div>
 
@@ -305,8 +334,8 @@ export default function DocumentsVaultView() {
             >
               Cancel
             </button>
-            <button type="submit" className="wv-btn wv-btn-primary">
-              Upload to Vault
+            <button type="submit" className="wv-btn wv-btn-primary" disabled={uploading || products.length === 0}>
+              {uploading ? 'Uploading…' : 'Upload to Vault'}
             </button>
           </div>
         </form>

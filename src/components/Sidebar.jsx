@@ -12,16 +12,12 @@ import {
   Users,
   Tag,
   FileSpreadsheet,
-  ArrowRightLeft,
-  Sparkles,
   LogOut,
   X
 } from 'lucide-react';
 
 export default function Sidebar({ isOpen, onClose }) {
-  const { currentView, navigate, currentUser, switchRole, logout, products } = useVault();
-
-  const isAdmin = currentUser.role === 'Admin' || currentView.startsWith('admin-');
+  const { currentView, navigate, isAdmin, logout, products } = useVault();
 
   // Count expiring soon products (within 30 days)
   const expiringCount = products.filter((p) => p.status === 'expiring').length;
@@ -194,19 +190,10 @@ export default function Sidebar({ isOpen, onClose }) {
         )}
       </nav>
 
-      {/* Switch Portal & Logout Footer */}
+      {/* Logout Footer */}
       <div className="wv-sidebar-footer">
         <button
-          onClick={() => switchRole(isAdmin ? 'User' : 'Admin')}
-          className="wv-btn wv-btn-secondary wv-btn-sm"
-          style={{ width: '100%', justifyContent: 'center' }}
-        >
-          <ArrowRightLeft size={15} />
-          <span>Switch to {isAdmin ? 'User Portal' : 'Admin Mode'}</span>
-        </button>
-
-        <button
-          onClick={logout}
+          onClick={() => logout()}
           className="wv-nav-item"
           style={{ padding: '0.5rem 0.75rem', justifyContent: 'flex-start', color: '#f87171' }}
         >

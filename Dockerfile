@@ -1,6 +1,7 @@
-FROM node:22-alpine AS build
+# Build the React frontend
+FROM node:22-alpine AS frontend-build
 
-WORKDIR /app
+WORKDIR /frontend
 
 COPY package*.json ./
 RUN npm ci
@@ -8,10 +9,19 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM nginx:alpine
+# Install backend dependencies and run the full 
+application
+FROM node:22-alpine
 
-COPY --from=build /app/dist /usr/share/nginx/html
+WORKDIR /app
 
-EXPOSE 80
+COPY backend/package*.json ./
+RUN npm install --omit=dev
 
-CMD ["nginx", "-g", "daemon off;"]
+COPY backend/ ./backend/
+COPY --from=frontend-build /frontend/dist 
+./backend/public/
+
+ENV NODE_ENV=production
+
+CMD ["node", "backend/server.js"]

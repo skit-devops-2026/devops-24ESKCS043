@@ -35,8 +35,17 @@ app.use('/api/users', userRouter);
 app.use('/api/documents', documentRouter);
 app.use('/api/service-records', serviceRecordRouter);
 
-app.use('/api', (req, res) => {
-  res.status(404).json({ success: false, error: `Cannot ${req.method} ${req.originalUrl}` });
+app.use((req, res) => {
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({
+      success: false,
+      error: `Cannot ${req.method} 
+${req.originalUrl}`,
+    });
+  }
+
+  res.sendFile(path.join(__dirname, 'public', 
+'index.html'));
 });
 
 // Central error handler

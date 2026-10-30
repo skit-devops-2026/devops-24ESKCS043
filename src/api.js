@@ -1,6 +1,6 @@
 // Central API client — every request goes through here so the JWT is attached
 // and errors come back as readable messages.
-export const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
+export const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 
 const TOKEN_KEY = 'token';
 

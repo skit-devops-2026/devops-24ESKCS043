@@ -34,7 +34,8 @@ app.use('/api/categories', categoryRouter);
 app.use('/api/users', userRouter);
 app.use('/api/documents', documentRouter);
 app.use('/api/service-records', serviceRecordRouter);
-
+app.use(express.static(path.join(__dirname, 
+'public')));
 app.use((req, res) => {
   if (req.path.startsWith('/api')) {
     return res.status(404).json({
